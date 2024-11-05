@@ -1,6 +1,7 @@
 import cv2
 from image_processing.feature_extraction import FeatureExtractor
 from image_processing.feature_matching import FeatureMatcher
+from image_processing.odometry_calculation import OdometryCalculator
 
 def main():
     # Загружаем видеофайл
@@ -15,6 +16,11 @@ def main():
     feature_extractor = FeatureExtractor()
     feature_matcher = FeatureMatcher()
     
+    # Параметры камеры
+    focal_length = 800.0  # Фокусное расстояние (800 вроде как стандарт нужна инфа с камеры)
+    principal_point = (0.5, 0.5)  # Нужна инфа с камеры, либо середина
+    odometry_calculator = OdometryCalculator(focal_length, principal_point)
+
     # Читаем первый кадр
     ret, prev_frame = cap.read()
     if not ret:
@@ -37,13 +43,28 @@ def main():
         
         # Сопоставляем ключевые точки между предыдущим и текущим кадрами
         matches = feature_matcher.match_features(prev_descriptors, descriptors)
+
+        # Вычисляем движение с помощью одометрии
+        translation, rotation = odometry_calculator.calculate_motion(prev_keypoints, keypoints, matches)
         
+        
+        # Визуализируем вектор смещения
+        start_point = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))  # Центр изображения
+        scale = 50  # Масштаб вектора
+        end_point = (int(start_point[0] + translation[0] * scale),
+                     int(start_point[1] - translation[1] * scale))  # Инвертируем Y для корректного отображени
+        
+         # Рисуем вектор смещения
+        cv2.arrowedLine(frame, start_point, end_point, (0, 255, 0), 2, tipLength=0.1)
+
         # Отображаем совпадения между кадрами
         frame_with_matches = feature_matcher.draw_matches(prev_frame, frame, prev_keypoints, keypoints, matches)
         
         # Показ кадра с совпадениями
         cv2.imshow("Matches", frame_with_matches)
-        
+
+        # Выводим информацию о движении
+        print(f"Translation: {translation.flatten()}, Rotation: {rotation}")
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
         
