@@ -10,13 +10,7 @@ class FeatureExtractor:
     def extract_features(self, image):
         """
         Извлекает ключевые точки и дескрипторы из изображения с использованием ORB.
-        
-        Параметры:
-        - image (numpy.ndarray): входное изображение.
-        
-        Возвращает:
-        - keypoints (list): список ключевых точек.
-        - descriptors (numpy.ndarray): массив дескрипторов.
+ 
         """
         if image is None:
             raise ValueError("Изображение не может быть пустым.")
@@ -33,11 +27,7 @@ class FeatureExtractor:
     def draw_keypoints(self, image, keypoints):
         """
         Отображает ключевые точки на изображении для визуализации.
-        
-        Параметры:
-        - image (numpy.ndarray): исходное изображение.
-        - keypoints (list): список ключевых точек.
-        
+
         Возвращает:
         - image_with_keypoints (numpy.ndarray): изображение с нанесенными ключевыми точками.
         """

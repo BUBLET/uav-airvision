@@ -10,10 +10,7 @@ class FeatureMatcher:
     def match_features(self, descriptors1, descriptors2):
         """
         Сопоставляет дескрипторы между двумя изображениями.
-        
-        Параметры:
-        - descriptors1 (numpy.ndarray): дескрипторы первого изображения.
-        - descriptors2 (numpy.ndarray): дескрипторы второго изображения.
+
         
         Возвращает:
         - matches (list): список сопоставленных точек.
@@ -32,13 +29,6 @@ class FeatureMatcher:
     def draw_matches(self, img1, img2, keypoints1, keypoints2, matches):
         """
         Отображает совпадения между двумя изображениями.
-        
-        Параметры:
-        - img1 (numpy.ndarray): первое изображение.
-        - img2 (numpy.ndarray): второе изображение.
-        - keypoints1 (list): ключевые точки первого изображения.
-        - keypoints2 (list): ключевые точки второго изображения.
-        - matches (list): список совпадений.
         
         Возвращает:
         - result_image (numpy.ndarray): изображение с отображенными совпадениями.
