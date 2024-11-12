@@ -1,11 +1,10 @@
 import cv2
-import collections
 import numpy as np
+import matplotlib.pyplot as plt
 from image_processing.feature_extraction import FeatureExtractor
 from image_processing.feature_matching import FeatureMatcher
 from image_processing.odometry_calculation import OdometryCalculator
 from error_correction.error_correction import ErrorCorrector
-from image_processing.depth_estimation import DepthEstimator  # Импортируем класс для оценки глубины
 
 def main():
     # Загружаем видеофайл
@@ -21,12 +20,12 @@ def main():
     feature_matcher = FeatureMatcher()
     
     # Параметры камеры
-    focal_length = 800.0  # Фокусное расстояние (800 вроде как стандарт нужно инфо с камеры)
-    principal_point = (0.5, 0.5)  # Нужна инфа с камеры, либо середина
+    focal_length = 800.0  # Фокусное расстояние
+    principal_point = (0.5, 0.5)  # Опорная точка
     odometry_calculator = OdometryCalculator(focal_length, principal_point)
 
     # Параметры фильтра Калмана
-    dt = 0.1  # Шаг времени между кадрами (нужно настроить под конкретное видео)
+    dt = 0.1  # Шаг времени между кадрами
     process_noise = 1e-3
     measurement_noise = 1e-2
     error_corrector = ErrorCorrector(dt, process_noise, measurement_noise)
@@ -37,11 +36,9 @@ def main():
     # Инициализация накопленного смещения
     accumulated_translation = np.zeros(2)
 
-    # Инициализация DepthEstimator
-    depth_estimator = DepthEstimator()
-
-    # Счетчик кадров для обновления карты глубины раз в 5 кадров
-    frame_counter = 0
+    # Списки для хранения координат траектории
+    trajectory_x = []
+    trajectory_y = []
 
     # Читаем первый кадр
     ret, prev_frame = cap.read()
@@ -66,32 +63,31 @@ def main():
         # Сопоставляем ключевые точки между предыдущим и текущим кадром
         matches = feature_matcher.match_features(prev_descriptors, descriptors)
 
+        # Визуализируем сопоставленные ключевые точки
+        matched_frame = cv2.drawMatches(prev_frame, prev_keypoints, frame, keypoints, matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        matched_frame_resized = cv2.resize(matched_frame, (1200, 600))
+        
         # Вычисляем движение с помощью одометрии
         translation, rotation = odometry_calculator.calculate_motion(prev_keypoints, keypoints, matches)
+        
+        # Выводим исходное смещение для диагностики
+        print(f"Translation (до фильтрации): {translation.flatten()}")
         
         # Применяем фильтр Калмана для коррекции смещения
         corrected_position, corrected_velocity = error_corrector.apply_correction(translation.flatten())
         
+        # Выводим исправленное смещение для диагностики
+        print(f"Translation (после фильтрации): {corrected_position}")
+        
         # Обновляем накопленное смещение с учетом текущего смещения
         accumulated_translation = (1 - alpha) * accumulated_translation + alpha * corrected_position[:2]
 
-        # Каждый 5-й кадр обновляем карту глубины
-        if frame_counter % 5 == 0:
-            depth_map = depth_estimator.estimate_depth(frame)
-            # Отображаем шкалу вертикального смещения (в данном случае просто показываем среднее значение глубины)
-            vertical_shift = np.mean(depth_map)
-            print(f"Vertical shift (average depth): {vertical_shift}")
-            
-            # Рисуем шкалу вертикального смещения
-            scale_height = int(vertical_shift / 10)  # Преобразуем среднее значение в высоту шкалы
-            cv2.line(frame, (50, 50), (50, 50 + scale_height), (0, 0, 255), 5)
-            cv2.putText(frame, f"Vertical Shift: {vertical_shift:.2f} meters", (50, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        # Добавляем новые координаты в траекторию
+        trajectory_x.append(accumulated_translation[0])
+        trajectory_y.append(-accumulated_translation[1])  # Инвертируем ось Y, чтобы траектория была в правильном направлении
 
-        frame_counter += 1
-
-        # Визуализируем кадр
-        frame_resized = cv2.resize(frame, (1200, 1000))
-        cv2.imshow("Frame", frame_resized)
+        # Отображаем кадр с визуализацией ключевых точек
+        cv2.imshow("Matched Keypoints", matched_frame_resized)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -100,6 +96,15 @@ def main():
         prev_frame = frame
         prev_keypoints = keypoints
         prev_descriptors = descriptors
+
+        # Отрисовываем текущую траекторию на графике
+        plt.clf()  # Очищаем предыдущий график
+        plt.plot(trajectory_x, trajectory_y, marker='o', markersize=3, linestyle='-', color='b')
+        plt.title("2D Траектория движения камеры")
+        plt.xlabel("X (Горизонтальная ось)")
+        plt.ylabel("Y (Вертикальная ось)")
+        plt.grid(True)
+        plt.pause(0.1)  # Небольшая пауза, чтобы обновить график
 
     # Освобождаем ресурсы
     cap.release()
