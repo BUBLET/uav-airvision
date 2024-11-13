@@ -1,110 +1,133 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import logging
 from image_processing.feature_extraction import FeatureExtractor
 from image_processing.feature_matching import FeatureMatcher
 from image_processing.odometry_calculation import OdometryCalculator
 from error_correction.error_correction import ErrorCorrector
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def main():
-    # Загружаем видеофайл
-    video_path = "datasets/video1.mp4"
+    # Задаём путь к видеофайлу
+    video_path = "datasets/Surenen Pass Trail Running.mp4"
+
+    # Открываем видео
     cap = cv2.VideoCapture(video_path)
-    
     if not cap.isOpened():
-        print("Ошибка: не удалось загрузить видео.")
+        logger.error("Ошибка: не удалось загрузить видео.")
         return
-    
-    # Создаем объект FeatureExtractor и FeatureMatcher
-    feature_extractor = FeatureExtractor()
+
+    # Читаем первый кадр
+    ret, prev_frame = cap.read()
+    if not ret:
+        logger.error("Ошибка: не удалось прочитать первый кадр.")
+        return
+
+    # Получаем размеры изображения
+    frame_height, frame_width = prev_frame.shape[:2]
+
+    # Инициализируем объекты для обработки
+    feature_extractor = FeatureExtractor(n_features=2000)
     feature_matcher = FeatureMatcher()
-    
-    # Параметры камеры
-    focal_length = 800.0  # Фокусное расстояние
-    principal_point = (0.5, 0.5)  # Опорная точка
-    odometry_calculator = OdometryCalculator(focal_length, principal_point)
+    odometry_calculator = OdometryCalculator(image_width=frame_width, image_height=frame_height)
 
     # Параметры фильтра Калмана
-    dt = 0.1  # Шаг времени между кадрами
-    process_noise = 1e-3
-    measurement_noise = 1e-2
+    dt = 1 / cap.get(cv2.CAP_PROP_FPS)  # Шаг времени между кадрами
+    process_noise = 1e-2
+    measurement_noise = 1e-1
     error_corrector = ErrorCorrector(dt, process_noise, measurement_noise)
 
-    # Параметр сглаживания
-    alpha = 0.8  # Чем меньше значение, тем сильнее сглаживание
-
-    # Инициализация накопленного смещения
-    accumulated_translation = np.zeros(2)
+    # Инициализация накопленного смещения и ориентации
+    trajectory = np.zeros((3, 1))
+    rotation_matrix = np.eye(3)
 
     # Списки для хранения координат траектории
     trajectory_x = []
     trajectory_y = []
 
-    # Читаем первый кадр
-    ret, prev_frame = cap.read()
-    if not ret:
-        print("Ошибка: не удалось прочитать первый кадр.")
-        return
-    
     # Извлекаем ключевые точки и дескрипторы для первого кадра
     prev_keypoints, prev_descriptors = feature_extractor.extract_features(prev_frame)
-    
+    if len(prev_keypoints) == 0:
+        logger.error("Не удалось обнаружить ключевые точки в первом кадре.")
+        return
+
+    # Настройка интерактивного графика
+    plt.ion()
+    fig, ax = plt.subplots()
+    line, = ax.plot([], [], marker='o', markersize=3, linestyle='-', color='b')
+    ax.set_title("2D Траектория движения камеры")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.grid(True)
+
     while True:
         # Читаем следующий кадр из видео
         ret, frame = cap.read()
-        
-        # Если кадр не был прочитан, выходим из цикла
         if not ret:
+            logger.info("Видео обработано полностью.")
             break
-        
-        # Извлекаем ключевые точки и дескрипторы для текущего кадра
-        keypoints, descriptors = feature_extractor.extract_features(frame)
-        
-        # Сопоставляем ключевые точки между предыдущим и текущим кадром
-        matches = feature_matcher.match_features(prev_descriptors, descriptors)
 
-        # Визуализируем сопоставленные ключевые точки
-        matched_frame = cv2.drawMatches(prev_frame, prev_keypoints, frame, keypoints, matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        matched_frame_resized = cv2.resize(matched_frame, (1200, 600))
-        
+        # Извлекаем ключевые точки и дескрипторы для текущего кадра
+        curr_keypoints, curr_descriptors = feature_extractor.extract_features(frame)
+        if len(curr_keypoints) == 0:
+            logger.warning("Не удалось обнаружить ключевые точки в текущем кадре. Пропуск кадра.")
+            continue
+
+        # Сопоставляем ключевые точки между предыдущим и текущим кадром
+        matches = feature_matcher.match_features(prev_descriptors, curr_descriptors)
+        if len(matches) < 8:
+            logger.warning(f"Недостаточно совпадений ({len(matches)}) для вычисления одометрии. Пропуск кадра.")
+            continue
+
         # Вычисляем движение с помощью одометрии
-        translation, rotation = odometry_calculator.calculate_motion(prev_keypoints, keypoints, matches)
-        
-        # Выводим исходное смещение для диагностики
-        print(f"Translation (до фильтрации): {translation.flatten()}")
-        
+        result = odometry_calculator.calculate_motion(prev_keypoints, curr_keypoints, matches)
+        if result is None:
+            logger.warning("Не удалось вычислить движение между кадрами. Пропуск кадра.")
+            continue
+        R, t, mask = result
+
+        # Обновляем общую ориентацию и положение
+        rotation_matrix = R @ rotation_matrix
+        scaled_translation = rotation_matrix.T @ t  # Преобразуем в глобальные координаты
+
         # Применяем фильтр Калмана для коррекции смещения
-        corrected_position, corrected_velocity = error_corrector.apply_correction(translation.flatten())
-        
-        # Выводим исправленное смещение для диагностики
-        print(f"Translation (после фильтрации): {corrected_position}")
-        
-        # Обновляем накопленное смещение с учетом текущего смещения
-        accumulated_translation = (1 - alpha) * accumulated_translation + alpha * corrected_position[:2]
+        corrected_position, corrected_velocity = error_corrector.apply_correction(scaled_translation[:2, 0])
 
         # Добавляем новые координаты в траекторию
-        trajectory_x.append(accumulated_translation[0])
-        trajectory_y.append(-accumulated_translation[1])  # Инвертируем ось Y, чтобы траектория была в правильном направлении
+        trajectory += rotation_matrix.T @ t
+        trajectory_x.append(trajectory[0, 0])
+        trajectory_y.append(trajectory[2, 0])  # Используем Z для плоскости XZ
 
-        # Отображаем кадр с визуализацией ключевых точек
+        # Обновляем график траектории
+        line.set_data(trajectory_x, trajectory_y)
+        ax.relim()
+        ax.autoscale_view()
+        plt.draw()
+        plt.pause(0.001)
+
+        # Визуализируем сопоставленные ключевые точки
+        matched_frame = feature_matcher.draw_matches(prev_frame, frame, prev_keypoints, curr_keypoints, matches)
+        matched_frame_resized = cv2.resize(matched_frame, (1000, 1000))
         cv2.imshow("Matched Keypoints", matched_frame_resized)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-        
+
         # Обновляем предыдущий кадр и его ключевые точки и дескрипторы
         prev_frame = frame
-        prev_keypoints = keypoints
-        prev_descriptors = descriptors
+        prev_keypoints = curr_keypoints
+        prev_descriptors = curr_descriptors
 
-        # Отрисовываем текущую траекторию на графике
-        plt.clf()  # Очищаем предыдущий график
-        plt.plot(trajectory_x, trajectory_y, marker='o', markersize=3, linestyle='-', color='b')
-        plt.title("2D Траектория движения камеры")
-        plt.xlabel("X (Горизонтальная ось)")
-        plt.ylabel("Y (Вертикальная ось)")
-        plt.grid(True)
-        plt.pause(0.1)  # Небольшая пауза, чтобы обновить график
+    # Сохраняем траекторию в файл
+    np.savetxt("trajectory.txt", np.column_stack((trajectory_x, trajectory_y)), fmt='%.6f')
+
+    # Отображаем финальную траекторию
+    plt.ioff()
+    plt.show()
 
     # Освобождаем ресурсы
     cap.release()
