@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     # Задаём путь к видеофайлу
-    video_path = "datasets/Surenen Pass Trail Running.mp4"
+    video_path = "datasets/Surenen Pass Trail Runningq.mp4"
 
     # Открываем видео
     cap = cv2.VideoCapture(video_path)
