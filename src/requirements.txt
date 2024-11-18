@@ -1,0 +1,7 @@
+numpy
+opencv-python
+opencv-contrib-python
+matplotlib
+logging
+python-orb-slam3
+typing
