@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     # Задаём путь к видеофайлу
-    video_path = "datasets/Surenen Pass Trail Runningq.mp4"
+    video_path = "datasets/video1.mp4"
 
     # Открываем видео
     cap = cv2.VideoCapture(video_path)
@@ -31,7 +31,7 @@ def main():
     frame_height, frame_width = prev_frame.shape[:2]
 
     # Инициализируем объекты для обработки
-    feature_extractor = FeatureExtractor(n_features=2000)
+    feature_extractor = FeatureExtractor()
     feature_matcher = FeatureMatcher()
     odometry_calculator = OdometryCalculator(image_width=frame_width, image_height=frame_height)
 

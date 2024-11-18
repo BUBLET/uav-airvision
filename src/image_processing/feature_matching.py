@@ -141,39 +141,3 @@ class FeatureMatcher:
             flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
         )
         return result_image
-
-# Пример использования
-if __name__ == "__main__":
-    # Задаём пути к изображениям
-    img1_path = "image1.jpg"
-    img2_path = "image2.jpg"
-
-    # Загружаем изображения
-    img1 = cv2.imread(img1_path, cv2.IMREAD_GRAYSCALE)
-    img2 = cv2.imread(img2_path, cv2.IMREAD_GRAYSCALE)
-
-    if img1 is None or img2 is None:
-        logger.error("Не удалось загрузить изображения.")
-        exit(1)
-
-    # Извлекаем ключевые точки и дескрипторы (используем FeatureExtractor из предыдущего модуля)
-    from image_processing.feature_extraction import FeatureExtractor
-
-    feature_extractor = FeatureExtractor()
-
-    keypoints1, descriptors1 = feature_extractor.extract_features(img1)
-    keypoints2, descriptors2 = feature_extractor.extract_features(img2)
-
-    # Создаем объект FeatureMatcher
-    feature_matcher = FeatureMatcher(matcher_type='BF', norm_type=cv2.NORM_HAMMING)
-
-    # Сопоставляем дескрипторы
-    good_matches = feature_matcher.match_features(descriptors1, descriptors2)
-
-    # Отображаем совпадения
-    matched_image = feature_matcher.draw_matches(img1, img2, keypoints1, keypoints2, good_matches)
-
-    # Показ изображения с совпадениями
-    cv2.imshow("Matches", matched_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()

@@ -1,0 +1,28 @@
+%YAML:1.0
+
+# Параметры камеры
+Camera.fx: 800.0
+Camera.fy: 800.0
+Camera.cx: 640.0
+Camera.cy: 360.0
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+Camera.k3: 0.0
+
+Camera.width: 1280
+Camera.height: 720
+
+Camera.fps: 30.0
+
+# Параметры ORB
+ORBextractor.nFeatures: 2000
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+# Тип сенсора
+Camera.Type: "PinHole"
