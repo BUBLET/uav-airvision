@@ -18,116 +18,155 @@ def main():
     # Открываем видео
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        logger.error("Ошибка: не удалось загрузить видео.")
+        logger.error("download video error")
         return
 
-    # Читаем первый кадр
-    ret, prev_frame = cap.read()
+    # Читаем первый кадр и устанавливаем его как опорный
+    ret, reference_frame = cap.read()
     if not ret:
-        logger.error("Ошибка: не удалось прочитать первый кадр.")
+        logger.error("no first frame")
         return
 
     # Получаем размеры изображения
-    frame_height, frame_width = prev_frame.shape[:2]
+    frame_height, frame_width = reference_frame.shape[:2]
 
     # Инициализируем объекты для обработки
     feature_extractor = FeatureExtractor()
     feature_matcher = FeatureMatcher()
     odometry_calculator = OdometryCalculator(image_width=frame_width, image_height=frame_height)
 
-    # Параметры фильтра Калмана
-    dt = 1 / cap.get(cv2.CAP_PROP_FPS)  # Шаг времени между кадрами
-    process_noise = 1e-2
-    measurement_noise = 1e-1
-    error_corrector = ErrorCorrector(dt, process_noise, measurement_noise)
+    frame_idx = 1 # Индекс текущего кадра
+    initialization_completed = False # Флаг инициализации
+    triangulation_threshold = np.deg2rad(1.0) # Порог угла триангуляции
 
-    # Инициализация накопленного смещения и ориентации
-    trajectory = np.zeros((3, 1))
-    rotation_matrix = np.eye(3)
-
-    # Списки для хранения координат траектории
-    trajectory_x = []
-    trajectory_y = []
-
-    # Извлекаем ключевые точки и дескрипторы для первого кадра
-    prev_keypoints, prev_descriptors = feature_extractor.extract_features(prev_frame)
-    if len(prev_keypoints) == 0:
-        logger.error("Не удалось обнаружить ключевые точки в первом кадре.")
+    ref_keypoints, ref_descriptors = feature_extractor.extract_features(reference_frame)
+    if len(ref_keypoints) == 0:
+        logger.error("no keypoints")
         return
-
-    # Настройка интерактивного графика
-    plt.ion()
-    fig, ax = plt.subplots()
-    line, = ax.plot([], [], marker='o', markersize=3, linestyle='-', color='b')
-    ax.set_title("2D Траектория движения камеры")
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.grid(True)
+    
+    # Хранение мап поинтс, кейфрамес и poses
+    map_points = None
+    keyframes = []
+    poses = []
 
     while True:
         # Читаем следующий кадр из видео
-        ret, frame = cap.read()
+        ret, current_frame = cap.read()
         if not ret:
-            logger.info("Видео обработано полностью.")
+            logger.info("complete")
             break
+        
+        frame_idx += 1
 
         # Извлекаем ключевые точки и дескрипторы для текущего кадра
-        curr_keypoints, curr_descriptors = feature_extractor.extract_features(frame)
+        curr_keypoints, curr_descriptors = feature_extractor.extract_features(current_frame)
         if len(curr_keypoints) == 0:
-            logger.warning("Не удалось обнаружить ключевые точки в текущем кадре. Пропуск кадра.")
+            logger.warning("no keypoints for this frame")
             continue
 
-        # Сопоставляем ключевые точки между предыдущим и текущим кадром
-        matches = feature_matcher.match_features(prev_descriptors, curr_descriptors)
-        if len(matches) < 8:
-            logger.warning(f"Недостаточно совпадений ({len(matches)}) для вычисления одометрии. Пропуск кадра.")
-            continue
+        if not initialization_completed:
+            # Сопоставляем ключевые точки между предыдущим и текущим кадром
+            matches = feature_matcher.match_features(ref_descriptors, curr_descriptors)
+            if len(matches) < 8:
+                logger.warning(f"matches not enough ({len(matches)}) for calculate pos")
+                continue
 
-        # Вычисляем движение с помощью одометрии
-        result = odometry_calculator.calculate_motion(prev_keypoints, curr_keypoints, matches)
-        if result is None:
-            logger.warning("Не удалось вычислить движение между кадрами. Пропуск кадра.")
-            continue
-        R, t, mask = result
+            # Вычисляем матрицы Essential и Homography
+            E_result = odometry_calculator.calculate_essential_matrix(ref_keypoints, curr_keypoints, matches)
+            H_result = odometry_calculator.calculate_homography_matrix(ref_keypoints, curr_keypoints, matches)
+            
+            if E_result is None or H_result is None:
+                logger.warning("cant calculate E and H matrix")
+                continue
+            E, mask_E, error_E = E_result
+            H, mask_H, error_H = H_result
 
-        # Обновляем общую ориентацию и положение
-        rotation_matrix = R @ rotation_matrix
-        scaled_translation = rotation_matrix.T @ t  # Преобразуем в глобальные координаты
+            # Вычисляем отношение ошибок для выбора матрицы
+            total_error = error_E + error_H
+            if total_error == 0:
+                logger.warning("sum of error 0")
+                continue
 
-        # Применяем фильтр Калмана для коррекции смещения
-        corrected_position, corrected_velocity = error_corrector.apply_correction(scaled_translation[:2, 0])
+            H_ratio = error_H / total_error
+            use_homography = H_ratio > 0.45
 
-        # Добавляем новые координаты в траекторию
-        trajectory += rotation_matrix.T @ t
-        trajectory_x.append(trajectory[0, 0])
-        trajectory_y.append(trajectory[2, 0])  # Используем Z для плоскости XZ
+            if use_homography:
+                logger.info("H matrix chosen")
+                R, t, mask_pose = odometry_calculator.decompose_homography(H, ref_keypoints, curr_keypoints, matches)
+            else:
+                logger.info("E matix chosen")
+                R, t, mask_pose = odometry_calculator.decompose_essential(E, ref_keypoints, curr_keypoints, matches)
+            
+            if R is None or t is None:
+                logger.warning("cant calculate pose for frame")
 
-        # Обновляем график траектории
-        line.set_data(trajectory_x, trajectory_y)
-        ax.relim()
-        ax.autoscale_view()
-        plt.draw()
-        plt.pause(0.001)
 
-        # Визуализируем сопоставленные ключевые точки
-        matched_frame = feature_matcher.draw_matches(prev_frame, frame, prev_keypoints, curr_keypoints, matches)
-        matched_frame_resized = cv2.resize(matched_frame, (1000, 1000))
-        cv2.imshow("Matched Keypoints", matched_frame_resized)
+            # Проверяем угол
+            median_angle = odometry_calculator.check_triangulation_angle(R, t, ref_keypoints, curr_keypoints, matches)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            if median_angle < triangulation_threshold:
+                logger.warning("median angle < threshold")
+                continue
+        else:
+            # После инициализации продолжаем оценивать позу камеры
+            # Используем последнюю позу камеры
+            last_pose = poses[-1]
 
-        # Обновляем предыдущий кадр и его ключевые точки и дескрипторы
-        prev_frame = frame
-        prev_keypoints = curr_keypoints
-        prev_descriptors = curr_descriptors
+            # Находим map points, которые находятся в поле зрения
+            visible_map_points, map_point_indices = odometry_calculator.find_visible_map_points(
+                map_points, curr_keypoints, last_pose, curr_descriptors
+            )
 
-    # Сохраняем траекторию в файл
-    np.savetxt("trajectory.txt", np.column_stack((trajectory_x, trajectory_y)), fmt='%.6f')
+            if len(visible_map_points) < 3:
+                logger.warning("Недостаточно видимых map points для оценки позы. Пропуск кадра.")
+                continue
 
-    # Отображаем финальную траекторию
-    plt.ioff()
-    plt.show()
+            # Создаем списки 2D-3D соответствий
+            object_points = np.array([mp.coordinates for mp in visible_map_points], dtype=np.float32)  # 3D точки
+            image_points = np.array([curr_keypoints[idx].pt for idx in map_point_indices], dtype=np.float32)  # 2D точки
+
+            # Оценка позы камеры с помощью PnP
+            retval, rvec, tvec, inliers = cv2.solvePnPRansac(
+                objectPoints=object_points,
+                imagePoints=image_points,
+                cameraMatrix=odometry_calculator.camera_matrix,
+                distCoeffs=None,
+                flags=cv2.SOLVEPNP_ITERATIVE
+            )
+
+            if not retval or inliers is None or len(inliers) < 4:
+                logger.warning("Не удалось оценить позу камеры с помощью PnP. Пропуск кадра.")
+                continue
+
+            # Преобразуем rvec и tvec в матрицу R и вектор t
+            R, _ = cv2.Rodrigues(rvec)
+            t = tvec
+
+            # Сохраняем позу камеры
+            current_pose = np.hstack((R, t))
+            poses.append(current_pose)
+
+            # Добавляем новый keyframe каждые N кадров или по определенным критериям
+            if frame_idx % 5 == 0:
+                keyframes.append((frame_idx, curr_keypoints, curr_descriptors, current_pose))
+                # Обновляем map points с использованием нового keyframe
+                # Выполняем триангуляцию между последним keyframe и текущим кадром
+                new_map_points = odometry_calculator.triangulate_new_map_points(
+                    keyframes[-2],
+                    keyframes[-1],
+                    poses,
+                    feature_matcher
+                )
+                # Добавляем новые map points
+                map_points.extend(new_map_points)
+
+            # Визуализация и другие обработки
+            # Здесь можно добавить код для визуализации траектории и карты
+            # Например, обновить график траектории или отобразить 3D карту
+
+            # Обновляем ref_keypoints и ref_descriptors для следующего шага
+            ref_keypoints = curr_keypoints
+            ref_descriptors = curr_descriptors
 
     # Освобождаем ресурсы
     cap.release()
