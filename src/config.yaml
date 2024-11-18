@@ -1,5 +1,7 @@
-%YAML:1.0
-
+%YAML:0.1
+"""
+Перспективно для интеграции с иму и другими сенсорами
+"""
 # Параметры камеры
 Camera.fx: 800.0
 Camera.fy: 800.0
@@ -14,10 +16,9 @@ Camera.k3: 0.0
 
 Camera.width: 1280
 Camera.height: 720
-
 Camera.fps: 30.0
 
-# Параметры ORB
+# Параметры ORB (неактуально при использовании slam3)
 ORBextractor.nFeatures: 2000
 ORBextractor.scaleFactor: 1.2
 ORBextractor.nLevels: 8
