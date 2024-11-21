@@ -1,8 +1,0 @@
-numpy
-opencv-python
-opencv-contrib-python
-matplotlib
-scipy
-logging
-python-orb-slam3
-typing
