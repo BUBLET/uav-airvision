@@ -303,6 +303,7 @@ class OdometryCalculator:
             self,
             map_points: List[MapPoint],
             curr_keypoints: List[cv2.KeyPoint],
+            curr_descriptors: np.ndarray,
             curr_pose: np.ndarray
     ) -> Tuple[List[MapPoint], List[int]]:
         """
@@ -317,7 +318,7 @@ class OdometryCalculator:
         - map_point_indices (List[int]): Индексы ключевых точек, соответствующих видимым map points.
         """
         visible_map_points =[]
-        map_points_indices =[]
+        projected_points =[]
 
         # Разбираем текущую позу камеры
         R_curr = curr_pose[:, :3]
@@ -330,53 +331,64 @@ class OdometryCalculator:
         image_width = self.camera_matrix[0, 2] * 2
         image_height = self.camera_matrix[1, 2] * 2
 
-        # Проверяем, что точка в текущем кадре видима
-        for idx, mp in enumerate(map_points):
+        for mp in map_points:
             point_world = mp.coordinates.reshape(3, 1)
-
             point_cam = R_cam @ point_world + t_cam.reshape(3, 1)
 
-            if point_cam[2] <= 0:
+            if point_cam[2, 0] <= 0:
                 continue
 
             point_proj = self.camera_matrix @ point_cam
-            point_proj /= point_proj[2]
+            point_proj /= point_proj[2, 0]
 
-            x, y = point_proj[0], point_proj[1]
+            x, y = point_proj[0, 0], point_proj[1, 0]
 
             if 0 <= x < image_width and 0 <= y < image_height:
                 visible_map_points.append(mp)
-                map_points_indices.append(idx)
-        
-        # Сопоставляем видимые пары точек с текущеми ключевыми
+                projected_points.append((x, y))
+
         if len(visible_map_points) == 0:
-            logger.warning("there is no visible pairs")
+            self.logger.warning("no visible points")
             return [], []
         
-        # Собираем дескрипторы видимых пар
-        map_descriptors = np.array([mp.descriptors[0] for mp in visible_map_points])
+        # Преобразуем ключевые точки текущего кадра в массив координат
+        keypoints_coords = np.array([kp.pt for kp in curr_keypoints])
 
-        # Получаем дескрипторы текущих точек
-        curr_descriptors = np.array([desc for desc in curr_descriptors])
+        # Создаем KD-дерево для быстрого поиска ближайших соседей
+        from scipy.spatial import cKDTree
+        tree = cKDTree(keypoints_coords)
 
-        # Используем матчер БФ
-        matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-        matches = matcher.match(map_descriptors, curr_descriptors)
+        # Сопоставляем проекции map points с ключевыми точками текущего кадра
+        matched_map_points = []
+        matched_keypoint_indices = []
+        radius = 5  # Порог расстояния для совпадения (в пикселях)
 
-        # Отбираем хорошие совпадения
-        matches = sorted(matches, key=lambda x: x.distance)
-        good_matches = matches[:100]
 
-        # Обновляем списки видимых пар points и индексы точек
-        visible_map_points = [visible_map_points[m.queryIdx] for m in good_matches]
-        map_points_indices = [m.trainIdx for m in good_matches]
+        # Проверяем, что точка в текущем кадре видима
+        for idx, (mp, proj_pt) in enumerate((zip(visible_map_points, projected_points))):
+            distances, indices = tree.query(proj_pt, k=1, distance_upper_bound=radius)
+            if distances != float('inf'):
+                keypoint_idx = indices
+                
+                mp_descriptor = mp.descriptors[0]
+                kp_descriptor = curr_descriptors[keypoint_idx]
 
-        return visible_map_points, map_points_indices
+                distance = cv2.norm(mp_descriptor, kp_descriptor, cv2.NORM_HAMMING)
+
+                if distance < 500:
+                    matched_map_points.append(mp)
+                    matched_keypoint_indices.append(keypoint_idx)
+        
+        if len(matched_map_points) == 0:
+            logger.warning("no matches")
+            return [], []
+
+        return matched_map_points, matched_keypoint_indices
     
     def triangulate_new_map_points(
         self,
-        keyframe1: Tuple[int, List[cv2.KeyPoint], np.ndarray],
-        keyframe2: Tuple[int, List[cv2.KeyPoint], np.ndarray],
+        keyframe1: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
+        keyframe2: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
         feature_matcher: FeatureMatcher,
         poses: List[np.ndarray]
     ) -> List[MapPoint]:
@@ -385,8 +397,8 @@ class OdometryCalculator:
         Возвращает:
         - new_map_points: Список новых map points.
         """
-        idx1, keypoints1, descriptors1 = keyframe1
-        idx2, keypoints2, descriptors2 = keyframe2
+        idx1, keypoints1, descriptors1, pose1 = keyframe1
+        idx2, keypoints2, descriptors2, pose2 = keyframe2
 
         # Сопоставляем дескрипторы между двумя keyframes
         matches = feature_matcher.match_features(descriptors1, descriptors2)
@@ -398,9 +410,6 @@ class OdometryCalculator:
         src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches])
 
-        # Получаем позы двух keyframes
-        pose1 = poses[idx1 - 1]  # Индексы начинаются с 0
-        pose2 = poses[idx2 - 1]
 
         R1 = pose1[:, :3]
         t1 = pose1[:, 3]
