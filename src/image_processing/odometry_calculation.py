@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from typing import List, Tuple, Optional
 import logging
-from image_processing.feature_matching import FeatureMatcher
+from .feature_matching import FeatureMatcher
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +17,14 @@ class MapPoint:
         self.coordinates = coordinates # 3d coordinates of point
         self.descriptors = [] # list of descriptors of this point
         self.observations = [] # list of observation in frames
+        self.matched_times = 0
+        
+    
+    def add_observation(self, frame_idx, keypoint_idx):
+        self.observations.append((frame_idx, keypoint_idx))
+
+    def is_frequently_matched(self, threshold=3):
+        return self.matched_times >= threshold
 
 class OdometryCalculator:
     def __init__(self, image_width: int, image_height: int, focal_length: Optional[float] = None):
@@ -31,28 +39,32 @@ class OdometryCalculator:
         self.camera_matrix = self.get_default_camera_matrix(image_width, image_height, focal_length)
         self.dist_coeffs = np.zeros((4, 1))  # Предполагаем отсутствие дисторсии
         logger.info("OdometryCalculator инициализирован с приблизительной матрицей камеры.")
+        self.logger = logging.getLogger(__name__)
 
     @staticmethod
     def get_default_camera_matrix(image_width: int, image_height: int, focal_length: Optional[float] = None) -> np.ndarray:
         """
-        Создает приблизительную матрицу камеры на основе размеров изображения и фокусного расстояния.
+        Создает матрицу камеры на основе известных параметров для набора данных 'matlab'.
 
         Параметры:
         - image_width (int): ширина изображения в пикселях.
         - image_height (int): высота изображения в пикселях.
-        - focal_length (float, optional): фокусное расстояние в пикселях.
+        - focal_length (float, optional): фокусное расстояние в миллиметрах (не используется, но оставлено для совместимости).
 
         Возвращает:
         - camera_matrix (numpy.ndarray): матрица внутренней калибровки камеры.
         """
-        if focal_length is None:
-            focal_length = 0.9 * max(image_width, image_height)  # Коэффициент можно настроить
-        cx = image_width / 2
-        cy = image_height / 2
-        camera_matrix = np.array([[focal_length, 0, cx],
-                                  [0, focal_length, cy],
-                                  [0, 0, 1]], dtype=np.float64)
+        # Параметры матрицы камеры для набора данных 'matlab'
+        fx = 615.0  # Фокусное расстояние по оси x в пикселях
+        fy = 615.0  # Фокусное расстояние по оси y в пикселях
+        cx = 320.0  # Главная точка по оси x (центр изображения)
+        cy = 240.0  # Главная точка по оси y (центр изображения)
+
+        camera_matrix = np.array([[fx, 0, cx],
+                                [0, fy, cy],
+                                [0, 0, 1]], dtype=np.float64)
         return camera_matrix
+
     
     def calculate_symmetric_transfer_error(
             self,
@@ -263,77 +275,77 @@ class OdometryCalculator:
         t: np.ndarray,
         prev_keypoints: List[cv2.KeyPoint],
         curr_keypoints: List[cv2.KeyPoint],
-        matches: List[cv2.DMatch]
-    ) -> np.ndarray:
-        # Получаем соответствующие точки
-        src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
-        dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
+        matches: List[cv2.DMatch],
+        mask_pose: np.ndarray
+    ) -> Tuple[np.ndarray, List[cv2.DMatch]]:
+        # Используем только инлайеры
+        inlier_matches = [matches[i] for i in range(len(matches)) if mask_pose[i]]
+        src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in inlier_matches])
+        dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in inlier_matches])
 
-        # Триангулируем точки
+        # Проекционные матрицы
         proj_matrix1 = self.camera_matrix @ np.hstack((np.eye(3), np.zeros((3, 1))))
         proj_matrix2 = self.camera_matrix @ np.hstack((R, t))
 
+        # Триангулируем точки
         pts4D_hom = cv2.triangulatePoints(proj_matrix1, proj_matrix2, src_pts.T, dst_pts.T)
-        pts3D = pts4D_hom[:3] / pts4D_hom[3]
-        return pts3D.T
+        pts3D = (pts4D_hom[:3] / pts4D_hom[3]).T
+        return pts3D, inlier_matches
+
+
 
     def convert_points_to_structure(
         self,
         pts3D: np.ndarray,
-        keypoints: List[cv2.KeyPoint],
-        matches: List[cv2.DMatch],
-        descriptors: np.ndarray
+        prev_keypoints: List[cv2.KeyPoint],
+        curr_keypoints: List[cv2.KeyPoint],
+        inlier_matches: List[cv2.DMatch],
+        prev_descriptors: np.ndarray,
+        curr_descriptors: np.ndarray,
+        prev_frame_idx: int,
+        curr_frame_idx: int
     ) -> List[MapPoint]:
-        """
-        Преобразует массив 3D точек в список объектов MapPoint, связывая их с дескрипторами и наблюдениями.
-        """
         map_points = []
-        for i in range(pts3D.shape[0]):
+        for i in range(len(pts3D)):
             mp = MapPoint(pts3D[i])
-            # Сохраняем дескриптор, связанный с этой точкой
-            descriptor = descriptors[matches[i].trainIdx]
-            mp.descriptors.append(descriptor)
-            # Сохраняем наблюдение (кадр и ключевую точку)
-            mp.observations.append((matches[i].imgIdx, keypoints[matches[i].trainIdx]))
+            # Сохраняем дескрипторы из предыдущего и текущего кадров
+            descriptor_prev = prev_descriptors[inlier_matches[i].queryIdx]
+            descriptor_curr = curr_descriptors[inlier_matches[i].trainIdx]
+            mp.descriptors.extend([descriptor_prev, descriptor_curr])
+            # Сохраняем наблюдения
+            mp.observations.extend([
+                (prev_frame_idx, inlier_matches[i].queryIdx),
+                (curr_frame_idx, inlier_matches[i].trainIdx)
+            ])
             map_points.append(mp)
         return map_points
 
-    
-    def visible_map_points(
-            self,
-            map_points: List[MapPoint],
-            curr_keypoints: List[cv2.KeyPoint],
-            curr_descriptors: np.ndarray,
-            curr_pose: np.ndarray
-    ) -> Tuple[List[MapPoint], List[int]]:
-        """
-        Находит mappoinst которые находятся в поле зрения текущего кадра и сравниваем их с ключевыми точками
-        Параметры:
-        - map_points (List[MapPoint]): Список всех map points.
-        - curr_keypoints (List[cv2.KeyPoint]): Ключевые точки текущего кадра.
-        - curr_pose (np.ndarray): Поза текущей камеры в виде матрицы 3x4 [R|t].
 
-        Возвращает:
-        - visible_map_points (List[MapPoint]): Список видимых map points.
-        - map_point_indices (List[int]): Индексы ключевых точек, соответствующих видимым map points.
-        """
-        visible_map_points =[]
-        projected_points =[]
+ 
+    def visible_map_points(
+        self,
+        map_points: List[MapPoint],
+        curr_keypoints: List[cv2.KeyPoint],
+        curr_descriptors: np.ndarray,
+        curr_pose: np.ndarray
+    ) -> Tuple[List[MapPoint], List[int]]:
+        visible_map_points = []
+        projected_points = []
 
         # Разбираем текущую позу камеры
         R_curr = curr_pose[:, :3]
-        t_curr = curr_pose[:, 3]
-
-        R_cam = R_curr.T
-        t_cam = -R_curr.T @ t_curr
+        t_curr = curr_pose[:, 3].reshape(3, 1)
 
         # Определяем границы изображения
         image_width = self.camera_matrix[0, 2] * 2
         image_height = self.camera_matrix[1, 2] * 2
 
+        self.logger.info(f"Total map points: {len(map_points)}")
+
         for mp in map_points:
             point_world = mp.coordinates.reshape(3, 1)
-            point_cam = R_cam @ point_world + t_cam.reshape(3, 1)
+            # Преобразуем точку из мировой системы координат в систему координат камеры
+            point_cam = R_curr @ point_world + t_curr
 
             if point_cam[2, 0] <= 0:
                 continue
@@ -347,10 +359,12 @@ class OdometryCalculator:
                 visible_map_points.append(mp)
                 projected_points.append((x, y))
 
+        self.logger.info(f"Number of projected map points: {len(projected_points)}")
+
         if len(visible_map_points) == 0:
             self.logger.warning("no visible points")
             return [], []
-        
+
         # Преобразуем ключевые точки текущего кадра в массив координат
         keypoints_coords = np.array([kp.pt for kp in curr_keypoints])
 
@@ -363,27 +377,27 @@ class OdometryCalculator:
         matched_keypoint_indices = []
         radius = 5  # Порог расстояния для совпадения (в пикселях)
 
-
-        # Проверяем, что точка в текущем кадре видима
-        for idx, (mp, proj_pt) in enumerate((zip(visible_map_points, projected_points))):
+        for idx, (mp, proj_pt) in enumerate(zip(visible_map_points, projected_points)):
             distances, indices = tree.query(proj_pt, k=1, distance_upper_bound=radius)
             if distances != float('inf'):
                 keypoint_idx = indices
-                
-                mp_descriptor = mp.descriptors[0]
+
+                mp_descriptor = mp.descriptors[-1]  # Используем последний дескриптор
                 kp_descriptor = curr_descriptors[keypoint_idx]
 
                 distance = cv2.norm(mp_descriptor, kp_descriptor, cv2.NORM_HAMMING)
 
-                if distance < 500:
+                if distance < 100:
                     matched_map_points.append(mp)
                     matched_keypoint_indices.append(keypoint_idx)
-        
+
         if len(matched_map_points) == 0:
-            logger.warning("no matches")
+            self.logger.warning("no matches")
             return [], []
 
+        self.logger.info(f"Number of matched map points: {len(matched_map_points)}")
         return matched_map_points, matched_keypoint_indices
+
     
     def triangulate_new_map_points(
         self,
@@ -437,4 +451,103 @@ class OdometryCalculator:
 
         return new_map_points
 
+    def get_inliers_epipolar(self, keypoints1, keypoints2, matches):
+        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches])
+        dst_pts = np.float32([keypoints2[m.queryIdx].pt for m in matches])
+        F, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.FM_RANSAC)
+        inlier_matches = [matches[i] for i in range(len(matches)) if mask[i]]
+        return inlier_matches
+    
+    def triangulate_new_points(self, 
+                               keyframe1, 
+                               keyframe2, 
+                               inlier_matches, 
+                               map_points):
+        new_map_points = []
+        idx1, keypoints1, descriptors1, pose1 = keyframe1
+        idx2, keypoints2, descriptors2, pose2 = keyframe1
 
+        # Проекционные матрицы
+
+        proj_matrix1 = self.camera_matrix @ pose1
+        proj_matrix2 = self.camera_matrix @ pose2
+
+        for match in inlier_matches:
+            kp1_idx = match.queryIdx
+            kp2_idx = match.trainIdx
+
+            # Были ли триангулированы?
+            already_triangulated = False
+            for mp in map_points:
+                if (idx1, kp1_idx) in mp.observations or (idx2, kp2_idx) in mp.observations:
+                    already_triangulated = True
+                    break
+            
+            if already_triangulated:
+                continue
+
+            # Координаты точек
+            pt1 = keypoints1[kp1_idx].pt
+            pt2 = keypoints2[kp2_idx].pt
+
+            # Триангуляция
+            pts4D_hom = cv2.triangulatePoints(
+                proj_matrix1, proj_matrix2, np.array([pt1]).T, np.array([pt2]).T)
+            pts3D = (pts4D_hom[:3] / pts4D_hom[3]).reshape(3)
+
+            # Создаем новую точку карты
+            mp = MapPoint(pts3D)
+            mp.descriptors.append(descriptors1[kp1_idx])
+            mp.descriptors.append(descriptors2[kp2_idx])
+            mp.add_observation(idx1, kp1_idx)
+            mp.add_observation(idx2, kp2_idx)
+            new_map_points.append(mp)
+
+        return new_map_points
+
+    def clean_local_map(self, map_points, current_pose, max_distance=50.0):
+        """
+        Очищает локальную карту, удаляя точки, которые слишком далеко от текущей позы камеры.
+
+        Параметры:
+        - map_points (List[MapPoint]): список точек карты.
+        - current_pose (numpy.ndarray): текущая поза камеры.
+        - max_distance (float): максимальное расстояние до точки карты, после которого она считается удалённой.
+
+        Возвращает:
+        - cleaned_map_points (List[MapPoint]): обновлённый список точек карты.
+        """
+        cleaned_map_points = []
+        R = current_pose[:, :3]
+        t = current_pose[:, 3]
+        camera_position = -R.T @ t  # Позиция камеры в мировой системе координат
+
+        for mp in map_points:
+            distance = np.linalg.norm(mp.coordinates - camera_position)
+            if distance < max_distance:
+                cleaned_map_points.append(mp)
+
+        return cleaned_map_points
+    
+    def update_connections_after_pnp(self, map_points, curr_keypoints, curr_descriptors, frame_idx):
+        # Сопоставляем дескрипторы точек карты с текущими дескрипторами
+        map_descriptors = []
+        map_indices = []
+        for idx, mp in enumerate(map_points):
+            if mp.descriptors:
+                map_descriptors.append(mp.descriptors[0])
+                map_indices.append(idx)
+
+        if not map_descriptors:
+            return
+
+        map_descriptors = np.array(map_descriptors, dtype=np.uint8)
+        matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
+        matches = matcher.match(map_descriptors, curr_descriptors)
+
+        # Обновляем наблюдения точек карты
+        for match in matches:
+            mp_idx = map_indices[match.queryIdx]
+            kp_idx = match.trainIdx
+            map_points[mp_idx].add_observation(frame_idx, kp_idx)
+            map_points[mp_idx].matched_times += 1

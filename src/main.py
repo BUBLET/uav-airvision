@@ -43,7 +43,7 @@ def main():
 
     
     # Хранение мап поинтс, кейфрамес и poses
-    map_points = None
+    map_points = []
     keyframes = []
     poses = []
 
@@ -52,8 +52,11 @@ def main():
     if len(ref_keypoints) == 0:
         logger.error("no keypoints")
         return
-    
-    last_pose = None
+    # Создаем первый ключевой кадр
+    initial_pose = np.hstack((np.eye(3), np.zeros((3,3))))
+    keyframes.append((frame_idx, ref_keypoints, ref_descriptors, initial_pose))
+    poses.append(initial_pose)
+    last_pose = initial_pose
 
     while True:
         # Читаем следующий кадр из видео
