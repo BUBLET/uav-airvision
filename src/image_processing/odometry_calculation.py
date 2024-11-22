@@ -25,6 +25,9 @@ class MapPoint:
 
     def is_frequently_matched(self, threshold=3):
         return self.matched_times >= threshold
+    
+    def __repr__(self):
+        return f"MapPoint(coordinates={self.coordinates}, descriptors={len(self.descriptors)}, observations={len(self.observations)})"
 
 class OdometryCalculator:
     def __init__(self, image_width: int, image_height: int, focal_length: Optional[float] = None):
@@ -292,8 +295,6 @@ class OdometryCalculator:
         pts3D = (pts4D_hom[:3] / pts4D_hom[3]).T
         return pts3D, inlier_matches
 
-
-
     def convert_points_to_structure(
         self,
         pts3D: np.ndarray,
@@ -306,8 +307,12 @@ class OdometryCalculator:
         curr_frame_idx: int
     ) -> List[MapPoint]:
         map_points = []
+        assert len(pts3D) == len(inlier_matches), "Количество 3D-точек не совпадает с количеством соответствий"
         for i in range(len(pts3D)):
-            mp = MapPoint(pts3D[i])
+            if pts3D[i][2] <= 0:
+                self.logger.warning(f"Точка {i} имеет отрицательную глубину: {pts3D[i]}")
+                continue  # Пропустить эту точку
+            mp = MapPoint(pts3D[i][:3])  # Предполагаем, что координаты в первых трех элементах
             # Сохраняем дескрипторы из предыдущего и текущего кадров
             descriptor_prev = prev_descriptors[inlier_matches[i].queryIdx]
             descriptor_curr = curr_descriptors[inlier_matches[i].trainIdx]
@@ -318,10 +323,10 @@ class OdometryCalculator:
                 (curr_frame_idx, inlier_matches[i].trainIdx)
             ])
             map_points.append(mp)
+            self.logger.debug(f"Добавлена новая точка карты {i}: {mp.coordinates}")
+        self.logger.info(f"Всего добавлено {len(map_points)} новых точек карты.")
         return map_points
 
-
- 
     def visible_map_points(
         self,
         map_points: List[MapPoint],
@@ -398,12 +403,11 @@ class OdometryCalculator:
         self.logger.info(f"Number of matched map points: {len(matched_map_points)}")
         return matched_map_points, matched_keypoint_indices
 
-    
     def triangulate_new_map_points(
         self,
         keyframe1: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
         keyframe2: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
-        feature_matcher: FeatureMatcher,
+        inlier_matches: List[cv2.DMatch],
         poses: List[np.ndarray]
     ) -> List[MapPoint]:
         """
@@ -415,14 +419,13 @@ class OdometryCalculator:
         idx2, keypoints2, descriptors2, pose2 = keyframe2
 
         # Сопоставляем дескрипторы между двумя keyframes
-        matches = feature_matcher.match_features(descriptors1, descriptors2)
-        if len(matches) < 8:
+        if len(inlier_matches) < 8:
             logger.warning("Недостаточно совпадений для триангуляции новых map points.")
             return []
 
         # Получаем соответствующие точки
-        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches])
-        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches])
+        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in inlier_matches])
+        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in inlier_matches])
 
 
         R1 = pose1[:, :3]
@@ -441,21 +444,34 @@ class OdometryCalculator:
         # Преобразуем в map points
         new_map_points = []
         for i in range(pts3D.shape[0]):
+            if pts3D[i][2] <= 0:
+                self.logger.warning(f"Точка {i} имеет отрицательную глубину: {pts3D[i]}")
+                continue  # Пропустить точки за камерой
+
             mp = MapPoint(pts3D[i])
             # Добавляем дескрипторы и наблюдения
-            mp.descriptors.append(descriptors1[matches[i].queryIdx])
-            mp.descriptors.append(descriptors2[matches[i].trainIdx])
-            mp.observations.append((idx1, keypoints1[matches[i].queryIdx]))
-            mp.observations.append((idx2, keypoints2[matches[i].trainIdx]))
+            mp.descriptors.append(descriptors1[inlier_matches[i].queryIdx])
+            mp.descriptors.append(descriptors2[inlier_matches[i].trainIdx])
+            mp.observations.append((idx1, keypoints1[inlier_matches[i].queryIdx]))
+            mp.observations.append((idx2, keypoints2[inlier_matches[i].trainIdx]))
             new_map_points.append(mp)
 
+        self.logger.info(f"Триангулировано {len(new_map_points)} новых точек карты.")
         return new_map_points
 
-    def get_inliers_epipolar(self, keypoints1, keypoints2, matches):
+    def get_inliers_epipolar(self, 
+                             keypoints1, 
+                             keypoints2, 
+                             matches):
+        
         src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches])
-        dst_pts = np.float32([keypoints2[m.queryIdx].pt for m in matches])
+        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches])
+
         F, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.FM_RANSAC)
-        inlier_matches = [matches[i] for i in range(len(matches)) if mask[i]]
+
+        inlier_matches = [m for i, m in enumerate(matches) if mask[i]]
+
+        self.logger.info(f"Found {len(inlier_matches)} inlier matches out of {len(matches)} total matches.")
         return inlier_matches
     
     def triangulate_new_points(self, 

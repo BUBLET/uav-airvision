@@ -11,9 +11,9 @@ class FrameProcessor:
                  feature_extractor,
                  feature_matcher,
                  odometry_calculator,
-                 translation_threshold=0.5,
+                 translation_threshold=0.01,
                  rotation_threshold=np.deg2rad(10),
-                 triangulation_threshold = np.deg2rad(1.0)
+                 triangulation_threshold = np.deg2rad(0.5)
                  ):
         self.feature_extractor = feature_extractor
         self.feature_matcher = feature_matcher
@@ -29,7 +29,7 @@ class FrameProcessor:
         hom_pose[:3, 3] = pose[:3, 3]
         return hom_pose
 
-    def should_insert_keyframe(self, last_keyframe_pose, current_pose, frame_index, force_keyframe_interval=20):
+    def should_insert_keyframe(self, last_keyframe_pose, current_pose, frame_index, force_keyframe_interval=1):
        
        
         if frame_index % force_keyframe_interval == 0:
@@ -232,21 +232,23 @@ class FrameProcessor:
                 matches = self.feature_matcher.match_features(prev_keyframe[2], curr_descriptors)
                 inlier_matches = self.odometry_calculator.get_inliers_epipolar(
                     prev_keyframe[1], curr_keypoints, matches)
+                self.logger.info(f"Найдено {len(inlier_matches)} inlier соответствий для триангуляции.")
                 
-                # Triangulate new map points between the last two keyframes
-                new_map_points = self.odometry_calculator.triangulate_new_map_points(
-                    prev_keyframe,
-                    keyframes[-1],
-                    inlier_matches,
-                    map_points
-                )
+                # Проверяем достаточность соответствий
+                if len(inlier_matches) < 8:
+                    self.logger.warning(f"Not enough matches ({len(inlier_matches)}) for triangulation. Skipping keyframe insertion.")
+                else:
+                    # Triangulate new map points between the last two keyframes using inlier_matches
+                    new_map_points = self.odometry_calculator.triangulate_new_map_points(
+                        prev_keyframe,
+                        keyframes[-1],
+                        inlier_matches,
+                        map_points
+                    )
+                    # Extend the map points list
+                    map_points.extend(new_map_points)
+                    self.logger.info(f"Общее количество точек карты: {len(map_points)}")
 
-                self.logger.info(f"Number of new map points triangulated: {len(new_map_points)}")
-
-                # Extend the map points list
-                map_points.extend(new_map_points)
-
-            self.logger.info(f"Number of map points before cleaning: {len(map_points)}")
             map_points = self.odometry_calculator.clean_local_map(map_points, current_pose)
             self.logger.info(f"Number of map points after cleaning: {len(map_points)}")
 
