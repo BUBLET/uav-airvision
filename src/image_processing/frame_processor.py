@@ -2,8 +2,6 @@ import logging
 import numpy as np
 import cv2
 
-from image_processing import FeatureExtractor, FeatureMatcher, OdometryCalculator
-
 logger = logging.getLogger(__name__)
 
 class FrameProcessor:
@@ -63,8 +61,6 @@ class FrameProcessor:
         else:
             return False
 
-
-
     def process_frame(self,
                       frame_idx,
                       current_frame,
@@ -84,6 +80,7 @@ class FrameProcessor:
             self.logger.warning("Failed to detect keypoints in the current frame. Skipping frame.")
             return None
         
+
         # Отображаем ключевые точки на текущем кадре
         img_with_keypoints = cv2.drawKeypoints(current_frame, curr_keypoints, None, color=(0, 255, 0))
         cv2.imshow('Keypoints', img_with_keypoints)
@@ -93,12 +90,22 @@ class FrameProcessor:
             exit()
 
         if not init_completed:
+            if ref_keypoints is None or ref_descriptors is None:
+                ref_keypoints = curr_keypoints
+                ref_descriptors = curr_descriptors
+                self.logger.info("keyframe succeed ")
+                return ref_keypoints, ref_descriptors, last_pose, map_points, init_completed
+            
             # Match features between the reference frame and the current frame
             matches = self.feature_matcher.match_features(ref_descriptors, curr_descriptors)
-            if len(matches) < 8:
+            if len(matches) < 4:
                 self.logger.warning(f"Not enough matches ({len(matches)}) for odometry computation. Skipping frame.")
                 return None
 
+            object_points = []
+            image_points = []
+
+            
             # Compute Essential and Homography matrices
             E_result = self.odometry_calculator.calculate_essential_matrix(ref_keypoints, curr_keypoints, matches)
             H_result = self.odometry_calculator.calculate_homography_matrix(ref_keypoints, curr_keypoints, matches)
@@ -243,7 +250,6 @@ class FrameProcessor:
                         prev_keyframe,
                         keyframes[-1],
                         inlier_matches,
-                        map_points
                     )
                     # Extend the map points list
                     map_points.extend(new_map_points)

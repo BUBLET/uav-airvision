@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from typing import List, Tuple, Optional
 import logging
-from .feature_matching import FeatureMatcher
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -14,18 +13,17 @@ class MapPoint:
     def __init__(self, coordinates):
         self.id = MapPoint._id_counter
         MapPoint._id_counter += 1
-        self.coordinates = coordinates # 3d coordinates of point
-        self.descriptors = [] # list of descriptors of this point
-        self.observations = [] # list of observation in frames
+        self.coordinates = coordinates  # 3D координаты точки
+        self.descriptors = []  # Список дескрипторов этой точки
+        self.observations = []  # Список наблюдений в кадрах
         self.matched_times = 0
-        
-    
+
     def add_observation(self, frame_idx, keypoint_idx):
         self.observations.append((frame_idx, keypoint_idx))
 
     def is_frequently_matched(self, threshold=3):
         return self.matched_times >= threshold
-    
+
     def __repr__(self):
         return f"MapPoint(coordinates={self.coordinates}, descriptors={len(self.descriptors)}, observations={len(self.observations)})"
 
@@ -41,8 +39,8 @@ class OdometryCalculator:
         """
         self.camera_matrix = self.get_default_camera_matrix(image_width, image_height, focal_length)
         self.dist_coeffs = np.zeros((4, 1))  # Предполагаем отсутствие дисторсии
-        logger.info("OdometryCalculator инициализирован с приблизительной матрицей камеры.")
         self.logger = logging.getLogger(__name__)
+        self.logger.info("OdometryCalculator инициализирован с приблизительной матрицей камеры.")
 
     @staticmethod
     def get_default_camera_matrix(image_width: int, image_height: int, focal_length: Optional[float] = None) -> np.ndarray:
@@ -64,11 +62,10 @@ class OdometryCalculator:
         cy = 240.0  # Главная точка по оси y (центр изображения)
 
         camera_matrix = np.array([[fx, 0, cx],
-                                [0, fy, cy],
-                                [0, 0, 1]], dtype=np.float64)
+                                  [0, fy, cy],
+                                  [0, 0, 1]], dtype=np.float64)
         return camera_matrix
 
-    
     def calculate_symmetric_transfer_error(
             self,
             matrix: np.ndarray,
@@ -80,13 +77,13 @@ class OdometryCalculator:
         Вычисляет симметричную ошибку переноса для E или H.
 
         Параметры:
-        - matrix (numpy.ndarray): матрица вращения (3x3).
-        - src_pts (np.float32): ключевые точки предыдущего кадра.
-        - dst_pts (np.float32): ключевые точки текущего кадра.
-        - is_homography (bool): является ли матрица homography
+        - matrix (numpy.ndarray): матрица вращения или Homography (3x3).
+        - src_pts (np.ndarray): ключевые точки предыдущего кадра.
+        - dst_pts (np.ndarray): ключевые точки текущего кадра.
+        - is_homography (bool): является ли матрица Homography.
 
         Возвращает:
-        - error (float): симметричная ошибка переноса для матриц Е и Н 
+        - error (float): симметричная ошибка переноса.
         """
         if is_homography:
             # Преобразуем точки с помощью Homography
@@ -119,9 +116,9 @@ class OdometryCalculator:
         prev_keypoints: List[cv2.KeyPoint],
         curr_keypoints: List[cv2.KeyPoint],
         matches: List[cv2.DMatch]
-    ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    ) -> Optional[Tuple[np.ndarray, np.ndarray, float]]:
         """
-        Вычисляет движение между предыдущими и текущими кадрами на основе ключевых точек.
+        Вычисляет матрицу Essential между предыдущими и текущими кадрами на основе ключевых точек.
 
         Параметры:
         - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
@@ -129,11 +126,11 @@ class OdometryCalculator:
         - matches (list of cv2.DMatch): список сопоставленных точек.
 
         Возвращает:
-        - R (numpy.ndarray): матрица вращения (3x3).
-        - t (numpy.ndarray): вектор трансляции (3x1).
+        - E (numpy.ndarray): матрица Essential (3x3).
         - mask (numpy.ndarray): маска с информацией о надежных соответствиях.
+        - error (float): симметричная ошибка переноса.
 
-        Если движение не может быть вычислено, возвращает None.
+        Если матрицу Essential не удалось вычислить, возвращает None.
         """
         # Определяем соответствующие точки
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
@@ -150,19 +147,34 @@ class OdometryCalculator:
         )
 
         if E is None:
-            logger.warning("cant calculate Essential.")
+            self.logger.warning("Не удалось вычислить матрицу Essential.")
             return None
-        
+
         # Вычисляем ошибку переноса
         error = self.calculate_symmetric_transfer_error(E, src_pts, dst_pts)
         return E, mask, error
-    
+
     def calculate_homography_matrix(
         self,
         prev_keypoints: List[cv2.KeyPoint],
         curr_keypoints: List[cv2.KeyPoint],
         matches: List[cv2.DMatch]
     ) -> Optional[Tuple[np.ndarray, np.ndarray, float]]:
+        """
+        Вычисляет матрицу Homography между предыдущими и текущими кадрами на основе ключевых точек.
+
+        Параметры:
+        - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
+        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
+        - matches (list of cv2.DMatch): список сопоставленных точек.
+
+        Возвращает:
+        - H (numpy.ndarray): матрица Homography (3x3).
+        - mask (numpy.ndarray): маска с информацией о надежных соответствиях.
+        - error (float): симметричная ошибка переноса.
+
+        Если матрицу Homography не удалось вычислить, возвращает None.
+        """
         # Получаем соответствующие точки
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
@@ -175,7 +187,7 @@ class OdometryCalculator:
         # Вычисляем симметричную ошибку переноса
         error = self.calculate_symmetric_transfer_error(H, src_pts, dst_pts, is_homography=True)
         return H, mask, error
-    
+
     def decompose_essential(
         self,
         E: np.ndarray,
@@ -183,6 +195,20 @@ class OdometryCalculator:
         curr_keypoints: List[cv2.KeyPoint],
         matches: List[cv2.DMatch]
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Декомпозирует матрицу Essential и восстанавливает относительное движение между двумя наборами точек.
+
+        Параметры:
+        - E (numpy.ndarray): матрица Essential.
+        - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
+        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
+        - matches (list of cv2.DMatch): список сопоставленных точек.
+
+        Возвращает:
+        - R (numpy.ndarray): матрица вращения (3x3).
+        - t (numpy.ndarray): вектор трансляции (3x1).
+        - mask_pose (numpy.ndarray): маска инлайеров, используемых для восстановления позы.
+        """
         # Получаем соответствующие точки
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
@@ -198,13 +224,27 @@ class OdometryCalculator:
         curr_keypoints: List[cv2.KeyPoint],
         matches: List[cv2.DMatch]
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Декомпозирует матрицу Homography и выбирает лучшее решение на основе числа точек перед камерой.
+
+        Параметры:
+        - H (numpy.ndarray): матрица Homography.
+        - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
+        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
+        - matches (list of cv2.DMatch): список сопоставленных точек.
+
+        Возвращает:
+        - best_R (numpy.ndarray): лучшая матрица вращения.
+        - best_t (numpy.ndarray): лучший вектор трансляции.
+        - best_mask (numpy.ndarray): маска инлайеров для лучшего решения.
+        """
         # Декомпозируем матрицу Homography
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
 
         # Получаем возможные решения
         retval, Rs, ts, normals = cv2.decomposeHomographyMat(H, self.camera_matrix)
-        logger.info(f"Найдено {len(Rs)} возможных решений для Homography.")
+        self.logger.info(f"Найдено {len(Rs)} возможных решений для Homography.")
 
         # Выбираем лучшее решение (например, точки перед камерой)
         best_num_inliers = -1
@@ -225,6 +265,18 @@ class OdometryCalculator:
         return best_R, best_t, best_mask
 
     def check_points_in_front(self, R, t, src_pts, dst_pts) -> np.ndarray:
+        """
+        Проверяет, находятся ли триангулированные точки перед камерой.
+
+        Параметры:
+        - R (numpy.ndarray): матрица вращения.
+        - t (numpy.ndarray): вектор трансляции.
+        - src_pts (np.ndarray): точки из предыдущего кадра.
+        - dst_pts (np.ndarray): точки из текущего кадра.
+
+        Возвращает:
+        - mask (np.ndarray): булева маска точек, находящихся перед камерой.
+        """
         # Триангулируем точки
         proj_matrix1 = self.camera_matrix @ np.hstack((np.eye(3), np.zeros((3, 1))))
         proj_matrix2 = self.camera_matrix @ np.hstack((R, t))
@@ -245,6 +297,19 @@ class OdometryCalculator:
         curr_keypoints: List[cv2.KeyPoint],
         matches: List[cv2.DMatch]
     ) -> float:
+        """
+        Вычисляет медианный угол триангуляции между лучами и базисом камеры.
+
+        Параметры:
+        - R (numpy.ndarray): матрица вращения.
+        - t (numpy.ndarray): вектор трансляции.
+        - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
+        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
+        - matches (list of cv2.DMatch): список сопоставленных точек.
+
+        Возвращает:
+        - median_angle (float): медианный угол триангуляции в радианах.
+        """
         # Получаем соответствующие точки
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
@@ -264,7 +329,7 @@ class OdometryCalculator:
         angles = []
         for i in range(pts3D.shape[1]):
             point = pts3D[:, i]
-            ray = point - np.zeros(3)
+            ray = point  # ray = point - np.zeros(3)
             cos_angle = np.dot(ray, baseline) / (np.linalg.norm(ray) * baseline_norm)
             angle = np.arccos(np.clip(cos_angle, -1.0, 1.0))
             angles.append(angle)
@@ -281,6 +346,21 @@ class OdometryCalculator:
         matches: List[cv2.DMatch],
         mask_pose: np.ndarray
     ) -> Tuple[np.ndarray, List[cv2.DMatch]]:
+        """
+        Триангулирует 3D точки из соответствующих 2D точек двух кадров.
+
+        Параметры:
+        - R (numpy.ndarray): матрица вращения.
+        - t (numpy.ndarray): вектор трансляции.
+        - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
+        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
+        - matches (list of cv2.DMatch): список сопоставленных точек.
+        - mask_pose (np.ndarray): маска инлайеров, используемых для восстановления позы.
+
+        Возвращает:
+        - pts3D (np.ndarray): массив триангулированных 3D точек.
+        - inlier_matches (list of cv2.DMatch): список инлайерных сопоставлений.
+        """
         # Используем только инлайеры
         inlier_matches = [matches[i] for i in range(len(matches)) if mask_pose[i]]
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in inlier_matches])
@@ -306,13 +386,29 @@ class OdometryCalculator:
         prev_frame_idx: int,
         curr_frame_idx: int
     ) -> List[MapPoint]:
+        """
+        Преобразует триангулированные 3D точки в объекты MapPoint.
+
+        Параметры:
+        - pts3D (np.ndarray): массив триангулированных 3D точек.
+        - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
+        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
+        - inlier_matches (list of cv2.DMatch): список инлайерных сопоставлений.
+        - prev_descriptors (np.ndarray): дескрипторы предыдущего кадра.
+        - curr_descriptors (np.ndarray): дескрипторы текущего кадра.
+        - prev_frame_idx (int): индекс предыдущего кадра.
+        - curr_frame_idx (int): индекс текущего кадра.
+
+        Возвращает:
+        - map_points (list of MapPoint): список созданных точек карты.
+        """
         map_points = []
         assert len(pts3D) == len(inlier_matches), "Количество 3D-точек не совпадает с количеством соответствий"
         for i in range(len(pts3D)):
             if pts3D[i][2] <= 0:
                 self.logger.warning(f"Точка {i} имеет отрицательную глубину: {pts3D[i]}")
                 continue  # Пропустить эту точку
-            mp = MapPoint(pts3D[i][:3])  # Предполагаем, что координаты в первых трех элементах
+            mp = MapPoint(pts3D[i])
             # Сохраняем дескрипторы из предыдущего и текущего кадров
             descriptor_prev = prev_descriptors[inlier_matches[i].queryIdx]
             descriptor_curr = curr_descriptors[inlier_matches[i].trainIdx]
@@ -334,6 +430,19 @@ class OdometryCalculator:
         curr_descriptors: np.ndarray,
         curr_pose: np.ndarray
     ) -> Tuple[List[MapPoint], List[int]]:
+        """
+        Определяет видимые точки карты в текущем кадре и сопоставляет их с ключевыми точками.
+
+        Параметры:
+        - map_points (list of MapPoint): список точек карты.
+        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
+        - curr_descriptors (np.ndarray): дескрипторы текущего кадра.
+        - curr_pose (np.ndarray): текущая поза камеры.
+
+        Возвращает:
+        - matched_map_points (list of MapPoint): сопоставленные точки карты.
+        - matched_keypoint_indices (list of int): индексы ключевых точек, соответствующих точкам карты.
+        """
         visible_map_points = []
         projected_points = []
 
@@ -367,7 +476,7 @@ class OdometryCalculator:
         self.logger.info(f"Number of projected map points: {len(projected_points)}")
 
         if len(visible_map_points) == 0:
-            self.logger.warning("no visible points")
+            self.logger.warning("Нет видимых точек")
             return [], []
 
         # Преобразуем ключевые точки текущего кадра в массив координат
@@ -397,7 +506,7 @@ class OdometryCalculator:
                     matched_keypoint_indices.append(keypoint_idx)
 
         if len(matched_map_points) == 0:
-            self.logger.warning("no matches")
+            self.logger.warning("Нет совпадений")
             return [], []
 
         self.logger.info(f"Number of matched map points: {len(matched_map_points)}")
@@ -407,26 +516,30 @@ class OdometryCalculator:
         self,
         keyframe1: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
         keyframe2: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
-        inlier_matches: List[cv2.DMatch],
-        poses: List[np.ndarray]
+        inlier_matches: List[cv2.DMatch]
     ) -> List[MapPoint]:
         """
-        Триангулирует новые map points между двумя keyframes.
+        Триангулирует новые точки карты между двумя кейфреймами.
+
+        Параметры:
+        - keyframe1 (tuple): кортеж (индекс кадра, ключевые точки, дескрипторы, поза).
+        - keyframe2 (tuple): кортеж (индекс кадра, ключевые точки, дескрипторы, поза).
+        - inlier_matches (list of cv2.DMatch): список инлайерных сопоставлений.
+
         Возвращает:
-        - new_map_points: Список новых map points.
+        - new_map_points (list of MapPoint): список новых точек карты.
         """
         idx1, keypoints1, descriptors1, pose1 = keyframe1
         idx2, keypoints2, descriptors2, pose2 = keyframe2
 
-        # Сопоставляем дескрипторы между двумя keyframes
+        # Проверяем количество совпадений
         if len(inlier_matches) < 8:
-            logger.warning("Недостаточно совпадений для триангуляции новых map points.")
+            self.logger.warning("Недостаточно совпадений для триангуляции новых map points.")
             return []
 
         # Получаем соответствующие точки
         src_pts = np.float32([keypoints1[m.queryIdx].pt for m in inlier_matches])
         dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in inlier_matches])
-
 
         R1 = pose1[:, :3]
         t1 = pose1[:, 3]
@@ -452,18 +565,28 @@ class OdometryCalculator:
             # Добавляем дескрипторы и наблюдения
             mp.descriptors.append(descriptors1[inlier_matches[i].queryIdx])
             mp.descriptors.append(descriptors2[inlier_matches[i].trainIdx])
-            mp.observations.append((idx1, keypoints1[inlier_matches[i].queryIdx]))
-            mp.observations.append((idx2, keypoints2[inlier_matches[i].trainIdx]))
+            mp.observations.append((idx1, inlier_matches[i].queryIdx))
+            mp.observations.append((idx2, inlier_matches[i].trainIdx))
             new_map_points.append(mp)
 
         self.logger.info(f"Триангулировано {len(new_map_points)} новых точек карты.")
         return new_map_points
 
-    def get_inliers_epipolar(self, 
-                             keypoints1, 
-                             keypoints2, 
-                             matches):
-        
+    def get_inliers_epipolar(self,
+                             keypoints1: List[cv2.KeyPoint],
+                             keypoints2: List[cv2.KeyPoint],
+                             matches: List[cv2.DMatch]) -> List[cv2.DMatch]:
+        """
+        Находит инлайерные соответствия на основе эпиполярных ограничений.
+
+        Параметры:
+        - keypoints1 (list of cv2.KeyPoint): ключевые точки первого кадра.
+        - keypoints2 (list of cv2.KeyPoint): ключевые точки второго кадра.
+        - matches (list of cv2.DMatch): список соответствий.
+
+        Возвращает:
+        - inlier_matches (list of cv2.DMatch): список инлайерных соответствий.
+        """
         src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches])
 
@@ -473,18 +596,29 @@ class OdometryCalculator:
 
         self.logger.info(f"Found {len(inlier_matches)} inlier matches out of {len(matches)} total matches.")
         return inlier_matches
-    
-    def triangulate_new_points(self, 
-                               keyframe1, 
-                               keyframe2, 
-                               inlier_matches, 
-                               map_points):
+
+    def triangulate_new_points(self,
+                               keyframe1: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
+                               keyframe2: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
+                               inlier_matches: List[cv2.DMatch],
+                               map_points: List[MapPoint]) -> List[MapPoint]:
+        """
+        Триангулирует новые точки карты между двумя кейфреймами, если они еще не были триангулированы.
+
+        Параметры:
+        - keyframe1 (tuple): кортеж (индекс кадра, ключевые точки, дескрипторы, поза).
+        - keyframe2 (tuple): кортеж (индекс кадра, ключевые точки, дескрипторы, поза).
+        - inlier_matches (list of cv2.DMatch): список инлайерных соответствий.
+        - map_points (list of MapPoint): существующие точки карты.
+
+        Возвращает:
+        - new_map_points (list of MapPoint): список новых точек карты.
+        """
         new_map_points = []
         idx1, keypoints1, descriptors1, pose1 = keyframe1
-        idx2, keypoints2, descriptors2, pose2 = keyframe1
+        idx2, keypoints2, descriptors2, pose2 = keyframe2
 
         # Проекционные матрицы
-
         proj_matrix1 = self.camera_matrix @ pose1
         proj_matrix2 = self.camera_matrix @ pose2
 
@@ -492,13 +626,13 @@ class OdometryCalculator:
             kp1_idx = match.queryIdx
             kp2_idx = match.trainIdx
 
-            # Были ли триангулированы?
+            # Проверяем, были ли точки уже триангулированы
             already_triangulated = False
             for mp in map_points:
                 if (idx1, kp1_idx) in mp.observations or (idx2, kp2_idx) in mp.observations:
                     already_triangulated = True
                     break
-            
+
             if already_triangulated:
                 continue
 
@@ -521,7 +655,7 @@ class OdometryCalculator:
 
         return new_map_points
 
-    def clean_local_map(self, map_points, current_pose, max_distance=50.0):
+    def clean_local_map(self, map_points: List[MapPoint], current_pose: np.ndarray, max_distance=50.0) -> List[MapPoint]:
         """
         Очищает локальную карту, удаляя точки, которые слишком далеко от текущей позы камеры.
 
@@ -544,8 +678,17 @@ class OdometryCalculator:
                 cleaned_map_points.append(mp)
 
         return cleaned_map_points
-    
-    def update_connections_after_pnp(self, map_points, curr_keypoints, curr_descriptors, frame_idx):
+
+    def update_connections_after_pnp(self, map_points: List[MapPoint], curr_keypoints: List[cv2.KeyPoint], curr_descriptors: np.ndarray, frame_idx: int):
+        """
+        Обновляет связи точек карты после решения PnP, добавляя новые наблюдения.
+
+        Параметры:
+        - map_points (list of MapPoint): список точек карты.
+        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
+        - curr_descriptors (np.ndarray): дескрипторы текущего кадра.
+        - frame_idx (int): индекс текущего кадра.
+        """
         # Сопоставляем дескрипторы точек карты с текущими дескрипторами
         map_descriptors = []
         map_indices = []
