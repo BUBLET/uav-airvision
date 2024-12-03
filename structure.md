@@ -1,0 +1,28 @@
+# Структура проекта: D:\Мисис\Диплом\AirVision
+
+- **./**
+    - .gitignore
+    - combine.py
+    - combined_code.txt
+    - generate_structure.py
+    - README.md
+    - requirements.txt
+    - structure.md
+- **src/**
+    - config.yaml
+    - main.py
+    - **error_correction/**
+        - error_correction.py
+        - kalman_filter.py
+    - **image_processing/**
+        - feature_extraction.py
+        - feature_matching.py
+        - frame_processor.py
+        - odometry_calculation.py
+        - __init__.py
+    - **optimization/**
+        - ba.py
+        - __init__.py
+    - **vo/**
+        - vo.py
+- **tests/**

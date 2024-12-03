@@ -275,7 +275,7 @@ class OdometryCalculator:
         - dst_pts (np.ndarray): точки из текущего кадра.
 
         Возвращает:
-        - mask (np.ndarray): булева маска точек, находящихся перед камерой.
+        - mask (np.ndarray): маска точек, находящихся перед камерой.
         """
         # Триангулируем точки
         proj_matrix1 = self.camera_matrix @ np.hstack((np.eye(3), np.zeros((3, 1))))

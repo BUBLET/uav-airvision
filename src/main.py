@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import logging
 from image_processing import FeatureExtractor, FeatureMatcher, OdometryCalculator, FrameProcessor
 from error_correction.error_correction import ErrorCorrector
+from optimization import BundleAdjustment
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
