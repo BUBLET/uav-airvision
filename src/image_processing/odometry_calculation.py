@@ -37,6 +37,8 @@ class OdometryCalculator:
         - image_height (int): высота изображения в пикселях.
         - focal_length (float, optional): фокусное расстояние камеры в пикселях.
         """
+        self.image_width = image_width
+        self.image_height = image_height
         self.camera_matrix = self.get_default_camera_matrix(image_width, image_height, focal_length)
         self.dist_coeffs = np.zeros((4, 1))  # Предполагаем отсутствие дисторсии
         self.logger = logging.getLogger(__name__)
@@ -432,16 +434,6 @@ class OdometryCalculator:
     ) -> Tuple[List[MapPoint], List[int]]:
         """
         Определяет видимые точки карты в текущем кадре и сопоставляет их с ключевыми точками.
-
-        Параметры:
-        - map_points (list of MapPoint): список точек карты.
-        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
-        - curr_descriptors (np.ndarray): дескрипторы текущего кадра.
-        - curr_pose (np.ndarray): текущая поза камеры.
-
-        Возвращает:
-        - matched_map_points (list of MapPoint): сопоставленные точки карты.
-        - matched_keypoint_indices (list of int): индексы ключевых точек, соответствующих точкам карты.
         """
         visible_map_points = []
         projected_points = []
@@ -451,27 +443,36 @@ class OdometryCalculator:
         t_curr = curr_pose[:, 3].reshape(3, 1)
 
         # Определяем границы изображения
-        image_width = self.camera_matrix[0, 2] * 2
-        image_height = self.camera_matrix[1, 2] * 2
+        # Используем реальные размеры изображения, переданные при инициализации
+        image_width = self.image_width
+        image_height = self.image_height
 
         self.logger.info(f"Total map points: {len(map_points)}")
 
-        for mp in map_points:
-            point_world = mp.coordinates.reshape(3, 1)
-            # Преобразуем точку из мировой системы координат в систему координат камеры
-            point_cam = R_curr @ point_world + t_curr
+        # Оптимизация: используем векторизацию для преобразования всех точек
+        map_coords = np.array([mp.coordinates for mp in map_points]).T  # 3xN
+        points_cam = R_curr @ map_coords + t_curr  # 3xN
 
-            if point_cam[2, 0] <= 0:
-                continue
+        # Фильтрация по глубине
+        valid_depth = points_cam[2, :] > 0
+        points_cam = points_cam[:, valid_depth]
+        filtered_map_points = [mp for mp, valid in zip(map_points, valid_depth) if valid]
 
-            point_proj = self.camera_matrix @ point_cam
-            point_proj /= point_proj[2, 0]
+        # Проекция на плоскость изображения
+        points_proj = self.camera_matrix @ points_cam  # 3xN
+        points_proj /= points_proj[2, :]
 
-            x, y = point_proj[0, 0], point_proj[1, 0]
+        x = points_proj[0, :]
+        y = points_proj[1, :]
 
-            if 0 <= x < image_width and 0 <= y < image_height:
-                visible_map_points.append(mp)
-                projected_points.append((x, y))
+        # Фильтрация по границам изображения
+        in_image = (x >= 0) & (x < image_width) & (y >= 0) & (y < image_height)
+        x = x[in_image]
+        y = y[in_image]
+        final_map_points = [mp for mp, valid in zip(filtered_map_points, in_image) if valid]
+
+        visible_map_points = final_map_points
+        projected_points = list(zip(x, y))
 
         self.logger.info(f"Number of projected map points: {len(projected_points)}")
 
@@ -491,11 +492,13 @@ class OdometryCalculator:
         matched_keypoint_indices = []
         radius = 5  # Порог расстояния для совпадения (в пикселях)
 
-        for idx, (mp, proj_pt) in enumerate(zip(visible_map_points, projected_points)):
-            distances, indices = tree.query(proj_pt, k=1, distance_upper_bound=radius)
-            if distances != float('inf'):
-                keypoint_idx = indices
+        # Пакетная обработка для ускорения
+        distances, indices = tree.query(projected_points, distance_upper_bound=radius)
+        valid_matches = distances != float('inf')
 
+        for mp, idx, dist, valid in zip(visible_map_points, indices, distances, valid_matches):
+            if valid:
+                keypoint_idx = idx
                 mp_descriptor = mp.descriptors[-1]  # Используем последний дескриптор
                 kp_descriptor = curr_descriptors[keypoint_idx]
 
