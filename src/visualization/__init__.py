@@ -1,1 +1,1 @@
-from .visualizer import Visualizer
+from .visualization import Visualizer3D

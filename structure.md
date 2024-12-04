@@ -23,6 +23,7 @@
     - **optimization/**
         - ba.py
         - __init__.py
-    - **vo/**
-        - vo.py
+    - **visualization/**
+        - visualization.py
+        - __init__.py
 - **tests/**

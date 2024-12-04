@@ -13,7 +13,7 @@ class FrameProcessor:
                  translation_threshold=0.01,
                  rotation_threshold=np.deg2rad(10),
                  triangulation_threshold=np.deg2rad(0.5),
-                 bundle_adjustment_frames=5  # Количество кадров для оптимизации
+                 bundle_adjustment_frames=2  # Количество кадров для оптимизации
                  ):
         self.feature_extractor = feature_extractor
         self.feature_matcher = feature_matcher

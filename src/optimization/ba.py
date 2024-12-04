@@ -77,7 +77,8 @@ class BundleAdjustment:
             jac_sparsity=A,
             verbose=2,
             x_scale='jac',
-            ftol=1e-4,
+            ftol=1e-2,
+            max_nfev=5,
             method='trf',
             args=(n_cameras, n_points, camera_indices, point_indices, points_2d)
         )
