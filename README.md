@@ -13,8 +13,8 @@ The system aims to estimate the uav`s camera pose and trajectory using:
 The project is in progress:
 - [x] Feature extraction and matching.
 - [x] Initial pose estimation using Essential/Homography matrices.
-- [ ] Local Map.
-- [ ] Basic adjustment.
+- [x] Local Map.
+- [x] Bundle adjustment.
 - [ ] Real-time tracking and optimization.
 - [ ] Integrate IMU sensors
 - [ ] Testing on uav
