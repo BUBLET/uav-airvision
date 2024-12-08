@@ -14,7 +14,7 @@ The project is in progress:
 - [x] Feature extraction and matching.
 - [x] Initial pose estimation using Essential/Homography matrices.
 - [x] Local Map.
-- [x] Bundle adjustment.
+- [x] Bundle adjustment (test)
 - [ ] Real-time tracking and optimization.
 - [ ] Integrate IMU sensors
 - [ ] Testing on uav
