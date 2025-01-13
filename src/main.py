@@ -57,7 +57,7 @@ def main():
         logger.error("no keypoints")
         return
     # Создаем первый ключевой кадр
-    initial_pose = np.hstack((np.eye(3), np.zeros((3,3))))
+    initial_pose = np.hstack((np.eye(3), np.zeros((3,1))))
     keyframes.append((frame_idx, ref_keypoints, ref_descriptors, initial_pose))
     poses.append(initial_pose)
     last_pose = initial_pose

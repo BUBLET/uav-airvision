@@ -435,6 +435,10 @@ class OdometryCalculator:
         """
         Определяет видимые точки карты в текущем кадре и сопоставляет их с ключевыми точками.
         """
+        if len(map_points) == 0:
+            self.logger.warning("No map_points available.")
+            return [], []
+        
         visible_map_points = []
         projected_points = []
 
@@ -658,7 +662,7 @@ class OdometryCalculator:
 
         return new_map_points
 
-    def clean_local_map(self, map_points: List[MapPoint], current_pose: np.ndarray, max_distance=50.0) -> List[MapPoint]:
+    def clean_local_map(self, map_points: List[MapPoint], current_pose: np.ndarray, max_distance=500.0) -> List[MapPoint]:
         """
         Очищает локальную карту, удаляя точки, которые слишком далеко от текущей позы камеры.
 
