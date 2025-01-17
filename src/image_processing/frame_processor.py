@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import cv2
+import config
 
 from optimization.ba import BundleAdjustment
 from image_processing.lk_tracker import LKTracker
@@ -73,19 +74,16 @@ def limit_map_points(map_points, max_points=1000):
     return map_points_sorted[:max_points]
 
 
-#########################
-# Класс FrameProcessor
-#########################
 
 class FrameProcessor:
     def __init__(self,
                  feature_extractor,
                  feature_matcher,
                  odometry_calculator,
-                 translation_threshold=0.01,
-                 rotation_threshold=np.deg2rad(10),
-                 triangulation_threshold=np.deg2rad(0.5),
-                 bundle_adjustment_frames=2  # Количество кадров для оптимизации
+                 translation_threshold=config.TRANSLATION_THRESHOLD,
+                 rotation_threshold=config.ROTATION_THRESHOLD,
+                 triangulation_threshold=config.TRIANGULATION_THRESHOLD,
+                 bundle_adjustment_frames=config.BUNDLE_ADJUSTMENT_FRAMES
                  ):
         self.feature_extractor = feature_extractor
         self.feature_matcher = feature_matcher
@@ -224,9 +222,7 @@ class FrameProcessor:
 
         return camera_params, points_3d, camera_indices, point_indices, points_2d
 
-    #################################
-    # Новый метод для фильтрации
-    #################################
+
 
     def filter_map_points(self, map_points, keyframes):
         """
@@ -235,21 +231,15 @@ class FrameProcessor:
         - убираем с малым числом наблюдений,
         - ограничиваем общее число (макс. self.max_points).
         """
-        # 1. Ошибка репроекции
         map_points = remove_points_with_large_reprojection_error(
             map_points, keyframes, 
             self.odometry_calculator.camera_matrix,
             max_reproj_error=self.max_reproj_error
         )
-        # 2. Число наблюдений
+
         map_points = remove_points_with_few_observations(map_points, self.min_observations)
-        # 3. Общее число
         map_points = limit_map_points(map_points, self.max_points)
         return map_points
-
-    #################################
-    # Основной метод обработки
-    #################################
 
     def process_frame(self,
                       frame_idx,
@@ -270,21 +260,11 @@ class FrameProcessor:
         init_completed = initialization_completed
         current_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
 
-        ############################################
-        # 1) Инициализация KLT/ORB режимов
-        ############################################
-
-        # Признак, что используем ORB на этом кадре (например, каждые orb_interval кадров)
         use_orb_now = (frame_idx % self.orb_interval == 0)
 
-        # Если мы ещё НЕ инициализировали систему (init_completed=False), 
-        #   продолжаем использовать вашу существующую логику ORB
         if not init_completed:
             use_orb_now = True
 
-        ############################################
-        # 2) Если ИНИЦИАЛИЗАЦИЯ ещё не сделана
-        ############################################
         if not init_completed:
             # Извлекаем ключевые точки и дескрипторы
             curr_keypoints, curr_descriptors = self.feature_extractor.extract_features(current_frame)
@@ -300,7 +280,6 @@ class FrameProcessor:
                 cv2.destroyAllWindows()
                 exit()
 
-            # Если ещё нет опорных ключевых точек
             if ref_keypoints is None or ref_descriptors is None:
                 ref_keypoints = curr_keypoints
                 ref_descriptors = curr_descriptors
@@ -399,13 +378,8 @@ class FrameProcessor:
 
                 return ref_keypoints, ref_descriptors, last_pose, map_points, init_completed
 
-
-        ############################################
-        # 3) Если инициализация УЖЕ сделана
-        ############################################
-
         if use_orb_now:
-            # --- Делаем ORB-детектирование (как раньше) ---
+            # Делаем ORB-детектирование
             curr_keypoints, curr_descriptors = self.feature_extractor.extract_features(current_frame)
             if len(curr_keypoints) == 0:
                 self.logger.warning("No keypoints found. Skipping frame.")
@@ -461,7 +435,6 @@ class FrameProcessor:
             self.prev_points = np.array([kp.pt for kp in curr_keypoints], dtype=np.float32)
 
         else:
-            # --- ИСПОЛЬЗУЕМ LK-ТРЕКЕР ---
             curr_keypoints = []
             curr_descriptors = None
 

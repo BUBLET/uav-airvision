@@ -2,6 +2,7 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 import logging
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +78,8 @@ class BundleAdjustment:
             jac_sparsity=A,
             verbose=2,
             x_scale='jac',
-            ftol=1e-2,
-            max_nfev=50,
+            ftol=config.BA_FTOL,
+            max_nfev=config.BA_MAX_NFEV,
             method='trf',
             args=(n_cameras, n_points, camera_indices, point_indices, points_2d)
         )

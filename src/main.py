@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import logging
+import config
 from image_processing import FeatureExtractor, FeatureMatcher, OdometryCalculator, FrameProcessor
 from error_correction.error_correction import ErrorCorrector
 from optimization import BundleAdjustment
@@ -12,11 +13,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def main():
-    # Задаём путь к видеофайлу
-    video_path = "datasets/video1.mp4"
 
     # Открываем видео
-    cap = cv2.VideoCapture(video_path)
+    cap = cv2.VideoCapture(config.VIDEO_PATH)
     if not cap.isOpened():
         logger.error("download video error")
         return
