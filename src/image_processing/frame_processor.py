@@ -9,9 +9,6 @@ from image_processing.lk_tracker import LKTracker
 logger = logging.getLogger(__name__)
 
 
-#########################
-# Фильтры для map_points
-#########################
 
 def remove_points_with_large_reprojection_error(map_points, keyframes, camera_matrix, max_reproj_error=5.0):
     """Удаляет точки, у которых средняя ошибка репроекции по всем наблюдениям > max_reproj_error."""
@@ -80,38 +77,32 @@ class FrameProcessor:
                  feature_extractor,
                  feature_matcher,
                  odometry_calculator,
-                 translation_threshold=config.TRANSLATION_THRESHOLD,
-                 rotation_threshold=config.ROTATION_THRESHOLD,
-                 triangulation_threshold=config.TRIANGULATION_THRESHOLD,
-                 bundle_adjustment_frames=config.BUNDLE_ADJUSTMENT_FRAMES
                  ):
         self.feature_extractor = feature_extractor
         self.feature_matcher = feature_matcher
         self.odometry_calculator = odometry_calculator
-        self.translation_threshold = translation_threshold
-        self.rotation_threshold = rotation_threshold
-        self.triangulation_threshold = triangulation_threshold
-        self.bundle_adjustment_frames = bundle_adjustment_frames
+
+        self.translation_threshold = config.TRANSLATION_THRESHOLD
+        self.rotation_threshold = config.ROTATION_THRESHOLD
+        self.triangulation_threshold = config.TRIANGULATION_THRESHOLD
+        self.bundle_adjustment_frames = config.BUNDLE_ADJUSTMENT_FRAMES
         self.logger = logging.getLogger(__name__)
 
         # KLT-трекер
         self.lk_tracker = LKTracker()
 
-        # Периодичность, с которой делаем детектирование ORB (а не LK)
-        self.orb_interval = 1  
-        # Вставлять ключевой кадр реже (по умолчанию каждые 5 кадров форсировано)
-        self.force_keyframe_interval = 1  
-        # Как часто делать полноценный BA (раз в N ключевых кадров)
-        self.keyframe_BA_interval = 3  
+        self.orb_interval = config.ORB_INTERVAL  
+        self.force_keyframe_interval = config.FORCE_KEYFRAME_INTERVAL 
+        self.keyframe_BA_interval = config.KEYFRAME_BA_INTERVAL 
 
         # Храним предыдущий кадр/точки для LK
         self.prev_frame = None
         self.prev_points = None
 
         # Настройки фильтрации
-        self.max_reproj_error = 15.0
-        self.min_observations = 1
-        self.max_points = 1000
+        self.max_reproj_error = config.MAX_REPROJ_ERROR
+        self.min_observations = config.MIN_OBSERVATIONS
+        self.max_points = config.MAX_POINTS
 
     def to_homogeneous(self, pose):
         hom_pose = np.eye(4)
@@ -119,13 +110,13 @@ class FrameProcessor:
         hom_pose[:3, 3] = pose[:3, 3]
         return hom_pose
 
-    def should_insert_keyframe(self, last_keyframe_pose, current_pose, frame_index, force_keyframe_interval=5):
+    def should_insert_keyframe(self, last_keyframe_pose, current_pose, frame_index):
         """
         Логика вставки нового кейфрейма:
         - каждые force_keyframe_interval кадров (принудительно),
         - либо если превышаются пороги смещения/вращения.
         """
-        if frame_index % force_keyframe_interval == 0:
+        if frame_index % config.FORCE_KEYFRAME_INTERVAL == 0:
             self.logger.info(f"Forced keyframe insertion at frame {frame_index}.")
             return True
         
@@ -156,6 +147,7 @@ class FrameProcessor:
             return False
 
     def update_optimized_values(self, optimized_camera_params, optimized_points_3d, keyframes, map_points):
+        
         """
         Обновляет параметры камер и 3D точек после Bundle Adjustment.
         """
@@ -222,9 +214,8 @@ class FrameProcessor:
 
         return camera_params, points_3d, camera_indices, point_indices, points_2d
 
-
-
     def filter_map_points(self, map_points, keyframes):
+        
         """
         Применяем несколько фильтров подряд:
         - убираем точки с большой ошибкой репроекции,
@@ -312,7 +303,7 @@ class FrameProcessor:
                 return None
 
             H_ratio = error_H / total_error
-            use_homography = (H_ratio > 0.45)
+            use_homography = (H_ratio > config.HOMOGRAPHY_INLIER_RATIO)
 
             # Декомпозиция
             if use_homography:
@@ -467,7 +458,7 @@ class FrameProcessor:
 
         # Добавление нового кейфрейма (только если этот кадр был ORB/PNP)
         if use_orb_now:
-            if self.should_insert_keyframe(last_pose, current_pose, frame_idx, self.force_keyframe_interval):
+            if self.should_insert_keyframe(last_pose, current_pose, frame_idx):
                 self.logger.info(f"Inserting new keyframe at frame {frame_idx}")
                 keyframes.append((frame_idx, curr_keypoints, curr_descriptors, current_pose))
 

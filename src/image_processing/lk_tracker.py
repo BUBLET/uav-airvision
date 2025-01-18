@@ -1,15 +1,13 @@
 import cv2
 import numpy as np
+import config
 
 class LKTracker:
-    def __init__(self,
-                 win_size=(21, 21),
-                 max_level=3,
-                 criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01)):
+    def __init__(self):
         self.lk_params = dict(
-            winSize=win_size,
-            maxLevel=max_level,
-            criteria=criteria
+            winSize=config.LK_WIN_SIZE,
+            maxLevel=config.LK_MAX_LEVEL,
+            criteria=config.LK_CRITERIA
         )
 
     def track(self, prev_frame, current_frame, prev_points):

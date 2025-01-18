@@ -67,11 +67,10 @@ def main():
         if not ret:
             logger.info("complete")
             break
-        
-        frame_idx += 1
+
+        frame_idx += 1            
 
         # Обрабатываем кадр
-
         result = processor.process_frame(
             frame_idx,
             current_frame,
@@ -85,8 +84,17 @@ def main():
         )
 
         if result is None:
+            lost_frames_count += 1
+            if lost_frames_count > config.LOST_THRESHOLD:
+                initialization_completed = False
+                map_points = []
+                keyframes = []
+                poses = []
+                ref_keypoints = None
+                ref_descriptors = None
             continue
         else:
+            lost_frames_count = 0
             ref_keypoints, ref_descriptors, last_pose, map_points, initialization_completed = result
 
         # Визуализация

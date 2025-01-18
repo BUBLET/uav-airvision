@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from typing import List, Tuple, Optional
 import logging
+import config
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -39,34 +40,10 @@ class OdometryCalculator:
         """
         self.image_width = image_width
         self.image_height = image_height
-        self.camera_matrix = self.get_default_camera_matrix(image_width, image_height, focal_length)
-        self.dist_coeffs = np.zeros((4, 1))  # Предполагаем отсутствие дисторсии
+        self.camera_matrix = config.CAMERA_MATRIX
+        self.dist_coeffs = np.zeros((4, 1)) 
         self.logger = logging.getLogger(__name__)
         self.logger.info("OdometryCalculator инициализирован с приблизительной матрицей камеры.")
-
-    @staticmethod
-    def get_default_camera_matrix(image_width: int, image_height: int, focal_length: Optional[float] = None) -> np.ndarray:
-        """
-        Создает матрицу камеры на основе известных параметров для набора данных 'matlab'.
-
-        Параметры:
-        - image_width (int): ширина изображения в пикселях.
-        - image_height (int): высота изображения в пикселях.
-        - focal_length (float, optional): фокусное расстояние в миллиметрах (не используется, но оставлено для совместимости).
-
-        Возвращает:
-        - camera_matrix (numpy.ndarray): матрица внутренней калибровки камеры.
-        """
-        # Параметры матрицы камеры для набора данных 'matlab'
-        fx = 615.0  # Фокусное расстояние по оси x в пикселях
-        fy = 615.0  # Фокусное расстояние по оси y в пикселях
-        cx = 320.0  # Главная точка по оси x (центр изображения)
-        cy = 240.0  # Главная точка по оси y (центр изображения)
-
-        camera_matrix = np.array([[fx, 0, cx],
-                                  [0, fy, cy],
-                                  [0, 0, 1]], dtype=np.float64)
-        return camera_matrix
 
     def calculate_symmetric_transfer_error(
             self,
@@ -145,7 +122,7 @@ class OdometryCalculator:
             self.camera_matrix,
             method=cv2.RANSAC,
             prob=0.999,
-            threshold=1.0
+            threshold=config.E_RANSAC_THRESHOLD
         )
 
         if E is None:
@@ -182,7 +159,7 @@ class OdometryCalculator:
         dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
 
         # Вычисляем матрицу Homography
-        H, mask = cv2.findHomography(src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=3.0)
+        H, mask = cv2.findHomography(src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=config.H_RANSAC_THRESHOLD)
         if H is None:
             return None
 
@@ -408,7 +385,6 @@ class OdometryCalculator:
         assert len(pts3D) == len(inlier_matches), "Количество 3D-точек не совпадает с количеством соответствий"
         for i in range(len(pts3D)):
             if pts3D[i][2] <= 0:
-                self.logger.warning(f"Точка {i} имеет отрицательную глубину: {pts3D[i]}")
                 continue  # Пропустить эту точку
             mp = MapPoint(pts3D[i])
             # Сохраняем дескрипторы из предыдущего и текущего кадров
@@ -565,7 +541,6 @@ class OdometryCalculator:
         new_map_points = []
         for i in range(pts3D.shape[0]):
             if pts3D[i][2] <= 0:
-                self.logger.warning(f"Точка {i} имеет отрицательную глубину: {pts3D[i]}")
                 continue  # Пропустить точки за камерой
 
             mp = MapPoint(pts3D[i])
@@ -662,14 +637,13 @@ class OdometryCalculator:
 
         return new_map_points
 
-    def clean_local_map(self, map_points: List[MapPoint], current_pose: np.ndarray, max_distance=500.0) -> List[MapPoint]:
+    def clean_local_map(self, map_points: List[MapPoint], current_pose: np.ndarray) -> List[MapPoint]:
         """
         Очищает локальную карту, удаляя точки, которые слишком далеко от текущей позы камеры.
 
         Параметры:
         - map_points (List[MapPoint]): список точек карты.
         - current_pose (numpy.ndarray): текущая поза камеры.
-        - max_distance (float): максимальное расстояние до точки карты, после которого она считается удалённой.
 
         Возвращает:
         - cleaned_map_points (List[MapPoint]): обновлённый список точек карты.
@@ -681,7 +655,7 @@ class OdometryCalculator:
 
         for mp in map_points:
             distance = np.linalg.norm(mp.coordinates - camera_position)
-            if distance < max_distance:
+            if distance < config.MAP_CLEAN_MAX_DISTANCE:
                 cleaned_map_points.append(mp)
 
         return cleaned_map_points
