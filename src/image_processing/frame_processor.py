@@ -322,7 +322,9 @@ class FrameProcessor:
             if R is None or t is None:
                 self.logger.warning("Failed to recover camera pose. Skipping frame.")
                 return None
-
+            t = t * config.INIT_SCALE
+            self.logger.info(f"Applied scale factor {config.INIT_SCALE:.3f} to translation. "
+                            f"New t={t.ravel()}")
             # Проверка угла триангуляции
             median_angle = self.odometry_calculator.check_triangulation_angle(
                 R, t, ref_keypoints, curr_keypoints, matches

@@ -8,8 +8,13 @@
     - README.md
     - requirements.txt
     - structure.md
+- **results/**
+    - cam_traj_truth.txt
+    - estimated_traj.txt
+- **scripts/**
+    - jpgToMp4.py
 - **src/**
-    - config.yaml
+    - config.py
     - main.py
     - **error_correction/**
         - error_correction.py
@@ -18,6 +23,7 @@
         - feature_extraction.py
         - feature_matching.py
         - frame_processor.py
+        - lk_tracker.py
         - odometry_calculation.py
         - __init__.py
     - **optimization/**

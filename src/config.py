@@ -53,3 +53,5 @@ HOMOGRAPHY_INLIER_RATIO = 0.45
 
 # Параметры ре-инициализации
 LOST_THRESHOLD = 5
+
+INIT_SCALE = 200.0

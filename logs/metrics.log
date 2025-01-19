@@ -1,50 +1,96 @@
-2025-01-19 14:10:15,230 - INFO - [MATRIX] Homography matrix chosen for decomposition.
-2025-01-19 14:10:15,239 - INFO - [INIT] Frame 2, median_angle_deg=103.35, num_inliers=496
-2025-01-19 14:10:15,366 - INFO - [PnP] Frame 3, inliers_pnp=58
-2025-01-19 14:10:15,480 - INFO - [BA] Initial cost=4552259.53, Final cost=532.38, Num iterations=10
-2025-01-19 14:10:15,547 - INFO - [PnP] Frame 4, inliers_pnp=13
-2025-01-19 14:10:15,625 - INFO - [PnP] Frame 5, inliers_pnp=13
-2025-01-19 14:10:15,682 - INFO - [PnP] Frame 6, inliers_pnp=9
-2025-01-19 14:10:15,840 - INFO - [BA] Initial cost=48424196.47, Final cost=2193738.05, Num iterations=8
-2025-01-19 14:10:15,913 - INFO - [PnP] Frame 7, inliers_pnp=31
-2025-01-19 14:10:15,992 - INFO - [PnP] Frame 8, inliers_pnp=18
-2025-01-19 14:10:16,054 - INFO - [PnP] Frame 9, inliers_pnp=11
-2025-01-19 14:10:16,339 - INFO - [BA] Initial cost=7902479.17, Final cost=3543847.97, Num iterations=10
-2025-01-19 14:10:16,425 - INFO - [PnP] Frame 10, inliers_pnp=49
-2025-01-19 14:10:16,533 - INFO - [PnP] Frame 11, inliers_pnp=38
-2025-01-19 14:10:16,626 - INFO - [PnP] Frame 12, inliers_pnp=26
-2025-01-19 14:10:16,868 - INFO - [BA] Initial cost=77010006.00, Final cost=6665196.70, Num iterations=10
-2025-01-19 14:10:17,004 - INFO - [PnP] Frame 13, inliers_pnp=39
-2025-01-19 14:10:17,142 - INFO - [PnP] Frame 14, inliers_pnp=37
-2025-01-19 14:10:17,260 - INFO - [PnP] Frame 15, inliers_pnp=29
-2025-01-19 14:10:17,885 - INFO - [BA] Initial cost=792287237.64, Final cost=14870198.97, Num iterations=10
-2025-01-19 14:10:18,039 - INFO - [PnP] Frame 16, inliers_pnp=44
-2025-01-19 14:10:18,194 - INFO - [PnP] Frame 17, inliers_pnp=76
-2025-01-19 14:10:18,349 - INFO - [PnP] Frame 18, inliers_pnp=92
-2025-01-19 14:10:18,881 - INFO - [BA] Initial cost=42280066.36, Final cost=13724983.71, Num iterations=10
-2025-01-19 14:10:19,027 - INFO - [PnP] Frame 19, inliers_pnp=32
-2025-01-19 14:10:19,181 - INFO - [PnP] Frame 20, inliers_pnp=26
-2025-01-19 14:10:19,352 - INFO - [PnP] Frame 21, inliers_pnp=22
-2025-01-19 14:10:20,063 - INFO - [BA] Initial cost=68398169.39, Final cost=24591442.28, Num iterations=10
-2025-01-19 14:10:20,544 - INFO - [PnP] Frame 22, inliers_pnp=28
-2025-01-19 14:10:21,081 - INFO - [PnP] Frame 23, inliers_pnp=27
-2025-01-19 14:10:21,516 - INFO - [PnP] Frame 24, inliers_pnp=24
-2025-01-19 14:10:23,144 - INFO - [BA] Initial cost=399075986.88, Final cost=24399149.75, Num iterations=10
-2025-01-19 14:10:23,370 - INFO - [PnP] Frame 25, inliers_pnp=23
-2025-01-19 14:10:23,602 - INFO - [PnP] Frame 26, inliers_pnp=34
-2025-01-19 14:10:23,846 - INFO - [PnP] Frame 27, inliers_pnp=25
-2025-01-19 14:10:26,097 - INFO - [BA] Initial cost=103247725.52, Final cost=24268237.54, Num iterations=10
-2025-01-19 14:10:26,726 - INFO - [PnP] Frame 28, inliers_pnp=37
-2025-01-19 14:10:27,156 - INFO - [PnP] Frame 29, inliers_pnp=24
-2025-01-19 14:10:27,963 - INFO - [PnP] Frame 30, inliers_pnp=34
-2025-01-19 14:10:30,717 - INFO - [BA] Initial cost=78616602.39, Final cost=36276750.78, Num iterations=10
-2025-01-19 14:10:31,144 - INFO - [PnP] Frame 31, inliers_pnp=45
-2025-01-19 14:10:31,489 - INFO - [PnP] Frame 32, inliers_pnp=38
-2025-01-19 14:10:32,072 - INFO - [PnP] Frame 33, inliers_pnp=29
-2025-01-19 14:10:33,866 - INFO - [BA] Initial cost=84370680.85, Final cost=59288180.13, Num iterations=10
-2025-01-19 14:10:34,222 - INFO - [PnP] Frame 34, inliers_pnp=34
-2025-01-19 14:10:34,573 - INFO - [PnP] Frame 35, inliers_pnp=39
-2025-01-19 14:10:34,930 - INFO - [PnP] Frame 36, inliers_pnp=49
-2025-01-19 14:10:37,280 - INFO - [BA] Initial cost=116177920.55, Final cost=78888296.65, Num iterations=10
-2025-01-19 14:10:37,638 - INFO - [PnP] Frame 37, inliers_pnp=51
-2025-01-19 14:10:38,010 - INFO - [PnP] Frame 38, inliers_pnp=58
+2025-01-20 01:49:01,041 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-20 01:49:01,051 - INFO - [INIT] Frame 2, median_angle_deg=106.48, num_inliers=500
+2025-01-20 01:49:01,159 - INFO - [PnP] Frame 3, inliers_pnp=63
+2025-01-20 01:49:01,356 - INFO - [BA] Initial cost=10433.81, Final cost=142.42, Num iterations=7
+2025-01-20 01:49:01,544 - INFO - [LOST] Frame 9, lost_frames_count=6
+2025-01-20 01:49:01,636 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-20 01:49:01,647 - INFO - [INIT] Frame 11, median_angle_deg=140.15, num_inliers=526
+2025-01-20 01:49:01,715 - INFO - [PnP] Frame 12, inliers_pnp=140
+2025-01-20 01:49:01,915 - INFO - [LOST] Frame 18, lost_frames_count=6
+2025-01-20 01:49:01,965 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-20 01:49:01,975 - INFO - [INIT] Frame 20, median_angle_deg=110.49, num_inliers=466
+2025-01-20 01:49:02,026 - INFO - [PnP] Frame 21, inliers_pnp=31
+2025-01-20 01:49:02,244 - INFO - [LOST] Frame 27, lost_frames_count=6
+2025-01-20 01:49:02,301 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-20 01:49:02,309 - INFO - [INIT] Frame 29, median_angle_deg=116.06, num_inliers=446
+2025-01-20 01:49:02,395 - INFO - [PnP] Frame 30, inliers_pnp=23
+2025-01-20 01:49:02,608 - INFO - [LOST] Frame 36, lost_frames_count=6
+2025-01-20 01:49:02,640 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-20 01:49:02,648 - INFO - [INIT] Frame 38, median_angle_deg=138.97, num_inliers=467
+2025-01-20 01:49:02,717 - INFO - [PnP] Frame 39, inliers_pnp=48
+2025-01-20 01:49:02,919 - INFO - [LOST] Frame 45, lost_frames_count=6
+2025-01-20 01:49:02,963 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-20 01:49:02,973 - INFO - [INIT] Frame 47, median_angle_deg=126.13, num_inliers=469
+2025-01-20 01:49:03,028 - INFO - [PnP] Frame 48, inliers_pnp=79
+2025-01-20 01:49:03,073 - INFO - [PnP] Frame 49, inliers_pnp=46
+2025-01-20 01:49:03,135 - INFO - [PnP] Frame 50, inliers_pnp=23
+2025-01-20 01:49:03,196 - INFO - [PnP] Frame 51, inliers_pnp=16
+2025-01-20 01:49:03,530 - INFO - [BA] Initial cost=68969.83, Final cost=464.19, Num iterations=10
+2025-01-20 01:49:03,580 - INFO - [PnP] Frame 52, inliers_pnp=5
+2025-01-20 01:49:03,628 - INFO - [PnP] Frame 53, inliers_pnp=7
+2025-01-20 01:49:03,697 - INFO - [PnP] Frame 54, inliers_pnp=6
+2025-01-20 01:49:03,803 - INFO - [BA] Initial cost=3997914.68, Final cost=1855065.12, Num iterations=10
+2025-01-20 01:49:03,862 - INFO - [PnP] Frame 55, inliers_pnp=8
+2025-01-20 01:49:03,943 - INFO - [PnP] Frame 56, inliers_pnp=11
+2025-01-20 01:49:04,018 - INFO - [PnP] Frame 57, inliers_pnp=12
+2025-01-20 01:49:04,134 - INFO - [BA] Initial cost=6362093.64, Final cost=2240401.03, Num iterations=10
+2025-01-20 01:49:04,211 - INFO - [PnP] Frame 58, inliers_pnp=10
+2025-01-20 01:49:04,295 - INFO - [PnP] Frame 59, inliers_pnp=11
+2025-01-20 01:49:04,391 - INFO - [PnP] Frame 60, inliers_pnp=22
+2025-01-20 01:49:04,584 - INFO - [BA] Initial cost=12403770.05, Final cost=5419742.82, Num iterations=10
+2025-01-20 01:49:04,666 - INFO - [PnP] Frame 61, inliers_pnp=19
+2025-01-20 01:49:04,744 - INFO - [PnP] Frame 62, inliers_pnp=16
+2025-01-20 01:49:04,806 - INFO - [PnP] Frame 63, inliers_pnp=23
+2025-01-20 01:49:05,471 - INFO - [BA] Initial cost=176365085.85, Final cost=8781813.83, Num iterations=10
+2025-01-20 01:49:05,539 - INFO - [PnP] Frame 64, inliers_pnp=15
+2025-01-20 01:49:05,613 - INFO - [PnP] Frame 65, inliers_pnp=12
+2025-01-20 01:49:05,677 - INFO - [PnP] Frame 66, inliers_pnp=9
+2025-01-20 01:49:05,972 - INFO - [BA] Initial cost=10338300.47, Final cost=3089096.09, Num iterations=9
+2025-01-20 01:49:06,030 - INFO - [PnP] Frame 67, inliers_pnp=13
+2025-01-20 01:49:06,127 - INFO - [PnP] Frame 69, inliers_pnp=7
+2025-01-20 01:49:06,336 - INFO - [BA] Initial cost=417427057.81, Final cost=7194017.15, Num iterations=10
+2025-01-20 01:49:06,420 - INFO - [PnP] Frame 70, inliers_pnp=20
+2025-01-20 01:49:06,559 - INFO - [PnP] Frame 73, inliers_pnp=19
+2025-01-20 01:49:06,655 - INFO - [PnP] Frame 74, inliers_pnp=19
+2025-01-20 01:49:06,763 - INFO - [PnP] Frame 75, inliers_pnp=6
+2025-01-20 01:49:07,039 - INFO - [BA] Initial cost=297250906.42, Final cost=15477518.86, Num iterations=10
+2025-01-20 01:49:07,115 - INFO - [PnP] Frame 76, inliers_pnp=12
+2025-01-20 01:49:07,195 - INFO - [PnP] Frame 77, inliers_pnp=12
+2025-01-20 01:49:07,274 - INFO - [PnP] Frame 78, inliers_pnp=12
+2025-01-20 01:49:07,443 - INFO - [BA] Initial cost=26598441.56, Final cost=12940864.50, Num iterations=10
+2025-01-20 01:49:07,540 - INFO - [PnP] Frame 79, inliers_pnp=50
+2025-01-20 01:49:07,632 - INFO - [PnP] Frame 80, inliers_pnp=27
+2025-01-20 01:49:07,745 - INFO - [PnP] Frame 81, inliers_pnp=17
+2025-01-20 01:49:08,057 - INFO - [BA] Initial cost=439883144.46, Final cost=15304486.89, Num iterations=10
+2025-01-20 01:49:08,141 - INFO - [PnP] Frame 83, inliers_pnp=0
+2025-01-20 01:49:08,189 - INFO - [PnP] Frame 86, inliers_pnp=4
+2025-01-20 01:49:08,267 - INFO - [PnP] Frame 87, inliers_pnp=8
+2025-01-20 01:49:08,633 - INFO - [BA] Initial cost=29884900.79, Final cost=6141113.25, Num iterations=10
+2025-01-20 01:49:08,699 - INFO - [PnP] Frame 88, inliers_pnp=6
+2025-01-20 01:49:08,777 - INFO - [PnP] Frame 89, inliers_pnp=4
+2025-01-20 01:49:08,840 - INFO - [PnP] Frame 90, inliers_pnp=7
+2025-01-20 01:49:09,098 - INFO - [BA] Initial cost=23271452.52, Final cost=8258341.27, Num iterations=10
+2025-01-20 01:49:09,183 - INFO - [PnP] Frame 91, inliers_pnp=6
+2025-01-20 01:49:09,260 - INFO - [PnP] Frame 92, inliers_pnp=8
+2025-01-20 01:49:09,337 - INFO - [PnP] Frame 94, inliers_pnp=9
+2025-01-20 01:49:09,447 - INFO - [PnP] Frame 96, inliers_pnp=13
+2025-01-20 01:49:09,687 - INFO - [BA] Initial cost=889497745.71, Final cost=176689085.11, Num iterations=10
+2025-01-20 01:49:09,761 - INFO - [PnP] Frame 97, inliers_pnp=44
+2025-01-20 01:49:09,862 - INFO - [PnP] Frame 98, inliers_pnp=16
+2025-01-20 01:49:09,947 - INFO - [PnP] Frame 99, inliers_pnp=5
+2025-01-20 01:49:10,103 - INFO - [BA] Initial cost=166015998.28, Final cost=8505882.68, Num iterations=10
+2025-01-20 01:49:10,216 - INFO - [PnP] Frame 100, inliers_pnp=8
+2025-01-20 01:49:10,289 - INFO - [PnP] Frame 101, inliers_pnp=13
+2025-01-20 01:49:10,367 - INFO - [PnP] Frame 102, inliers_pnp=13
+2025-01-20 01:49:10,539 - INFO - [BA] Initial cost=24837206.22, Final cost=5768268.80, Num iterations=10
+2025-01-20 01:49:10,632 - INFO - [PnP] Frame 103, inliers_pnp=17
+2025-01-20 01:49:10,710 - INFO - [PnP] Frame 104, inliers_pnp=15
+2025-01-20 01:49:10,804 - INFO - [PnP] Frame 105, inliers_pnp=19
+2025-01-20 01:49:10,999 - INFO - [BA] Initial cost=18581721.51, Final cost=7718568.24, Num iterations=9
+2025-01-20 01:49:11,098 - INFO - [PnP] Frame 106, inliers_pnp=6
+2025-01-20 01:49:11,190 - INFO - [PnP] Frame 107, inliers_pnp=13
+2025-01-20 01:49:11,303 - INFO - [PnP] Frame 108, inliers_pnp=10
+2025-01-20 01:49:11,575 - INFO - [BA] Initial cost=21752683.95, Final cost=9713134.06, Num iterations=9
+2025-01-20 01:49:11,672 - INFO - [PnP] Frame 109, inliers_pnp=23
+2025-01-20 01:49:11,780 - INFO - [PnP] Frame 110, inliers_pnp=20
+2025-01-20 01:49:11,903 - INFO - [PnP] Frame 111, inliers_pnp=12
