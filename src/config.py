@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-VIDEO_PATH = "D:/Мисис/Диплом/AirVision/datasets/DJI_0501.mp4"
+VIDEO_PATH = "D:/Мисис/Диплом/AirVision/datasets/output.mp4"
 
 FX = 615.0
 FY = 615.0
@@ -44,7 +44,7 @@ LK_CRITERIA = (
     0.01
 )
 
-BA_MAX_NFEV = 50
+BA_MAX_NFEV = 10
 BA_FTOL = 1e-2
 
 E_RANSAC_THRESHOLD = 1.0

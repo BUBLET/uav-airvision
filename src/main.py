@@ -3,16 +3,26 @@ import config
 import cv2
 import numpy as np
 
-
-# Консольный логгер
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+runtime_handler = logging.FileHandler("logs/runtime.log", mode='w')
+runtime_handler.setLevel(logging.INFO)
+runtime_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+runtime_handler.setFormatter(runtime_formatter)
+logger.addHandler(runtime_handler)
+
+warning_handler = logging.FileHandler("logs/error.log", mode="w")
+warning_handler.setLevel(logging.WARNING)
+warning_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+warning_handler.setFormatter(warning_formatter)
+logger.addHandler(warning_handler)
 
 # Логгер метрик
 metrics_logger = logging.getLogger("metrics_logger")
 metrics_logger.setLevel(logging.INFO)
 metrics_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-metrics_file_handler = logging.FileHandler("metrics.log", mode='w')  # в корне проекта или где нужно
+metrics_file_handler = logging.FileHandler("logs/metrics.log", mode='w')
 metrics_file_handler.setFormatter(metrics_formatter)
 metrics_logger.addHandler(metrics_file_handler)
 
