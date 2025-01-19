@@ -1,16 +1,25 @@
-import cv2
-import numpy as np
 import logging
 import config
+import cv2
+import numpy as np
+
+
+# Консольный логгер
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Логгер метрик
+metrics_logger = logging.getLogger("metrics_logger")
+metrics_logger.setLevel(logging.INFO)
+metrics_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+metrics_file_handler = logging.FileHandler("metrics.log", mode='w')  # в корне проекта или где нужно
+metrics_file_handler.setFormatter(metrics_formatter)
+metrics_logger.addHandler(metrics_file_handler)
+
 from image_processing import FeatureExtractor, FeatureMatcher, OdometryCalculator, FrameProcessor
 from error_correction.error_correction import ErrorCorrector
 from optimization import BundleAdjustment
 from visualization import Visualizer3D
-
-
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 def main():
 
@@ -92,6 +101,7 @@ def main():
                 poses = []
                 ref_keypoints = None
                 ref_descriptors = None
+                metrics_logger.info(f"[LOST] Frame {frame_idx}, lost_frames_count={lost_frames_count}")
             continue
         else:
             lost_frames_count = 0

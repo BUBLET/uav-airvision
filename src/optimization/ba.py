@@ -5,6 +5,7 @@ import logging
 import config
 
 logger = logging.getLogger(__name__)
+metrics_logger = logging.getLogger("metrics_logger")
 
 class BundleAdjustment:
     def __init__(self, camera_matrix):
@@ -86,6 +87,9 @@ class BundleAdjustment:
 
         logger.info(f"Конечная стоимость: {0.5 * np.sum(res.fun ** 2)}")
         logger.info(f"Оптимизация завершена: {res.success}, сообщение: {res.message}")
+        metrics_logger.info(f"[BA] Initial cost={0.5 * np.sum(f0 ** 2):.2f}, "
+                    f"Final cost={0.5 * np.sum(res.fun ** 2):.2f}, "
+                    f"Num iterations={res.nfev}")
 
         # Обновляем параметры камер и 3D-точек
         optimized_camera_params = res.x[:n_cameras * 6].reshape((n_cameras, 6))

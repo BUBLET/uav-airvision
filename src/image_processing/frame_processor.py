@@ -7,7 +7,7 @@ from optimization.ba import BundleAdjustment
 from image_processing.lk_tracker import LKTracker
 
 logger = logging.getLogger(__name__)
-
+metrics_logger = logging.getLogger("metrics_logger")
 
 
 def remove_points_with_large_reprojection_error(map_points, keyframes, camera_matrix, max_reproj_error=5.0):
@@ -264,12 +264,12 @@ class FrameProcessor:
                 return None
 
             # Отображение ключевых точек (как и раньше)
-            img_with_keypoints = cv2.drawKeypoints(current_frame, curr_keypoints, None, color=(0, 255, 0))
-            cv2.imshow('Keypoints', img_with_keypoints)
-            cv2.waitKey(1)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                cv2.destroyAllWindows()
-                exit()
+            # img_with_keypoints = cv2.drawKeypoints(current_frame, curr_keypoints, None, color=(0, 255, 0))
+            # cv2.imshow('Keypoints', img_with_keypoints)
+            # cv2.waitKey(1)
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     cv2.destroyAllWindows()
+            #     exit()
 
             if ref_keypoints is None or ref_descriptors is None:
                 ref_keypoints = curr_keypoints
@@ -308,11 +308,13 @@ class FrameProcessor:
             # Декомпозиция
             if use_homography:
                 self.logger.info("Homography matrix chosen for decomposition.")
+                metrics_logger.info(f"[MATRIX] Homography matrix chosen for decomposition.")
                 R, t, mask_pose = self.odometry_calculator.decompose_homography(
                     H, ref_keypoints, curr_keypoints, matches
                 )
             else:
                 self.logger.info("Essential matrix chosen for decomposition.")
+                metrics_logger.info(f"[MATRIX] Essential matrix chosen for decomposition.")
                 R, t, mask_pose = self.odometry_calculator.decompose_essential(
                     E, ref_keypoints, curr_keypoints, matches
                 )
@@ -326,7 +328,9 @@ class FrameProcessor:
                 R, t, ref_keypoints, curr_keypoints, matches
             )
             self.logger.info(f"Median triangulation angle: {np.rad2deg(median_angle):.2f} degrees.")
-
+            metrics_logger.info(f"[INIT] Frame {frame_idx}, median_angle_deg={np.rad2deg(median_angle):.2f}, "
+                    f"num_inliers={np.count_nonzero(mask_pose)}")
+            
             if median_angle < self.triangulation_threshold:
                 self.logger.warning("Median triangulation angle below threshold. Moving to next frame.")
                 return None
@@ -403,6 +407,7 @@ class FrameProcessor:
                 flags=cv2.SOLVEPNP_ITERATIVE
             )
             self.logger.info(f"Number of inliers in PnP: {len(inliers) if inliers is not None else 0}")
+            metrics_logger.info(f"[PnP] Frame {frame_idx}, inliers_pnp={len(inliers) if inliers is not None else 0}")
 
             if not retval or inliers is None or len(inliers) < 4:
                 self.logger.warning("Failed to estimate camera pose. Skipping frame")
@@ -437,13 +442,13 @@ class FrameProcessor:
                 self.logger.info(f"LK tracking: from {len(self.prev_points)} -> {len(curr_pts_good)} good points")
 
                 # Можно визуализировать:
-                disp = current_frame.copy()
-                for (x, y) in curr_pts_good:
-                    cv2.circle(disp, (int(x), int(y)), 3, (0, 255, 0), -1)
-                cv2.imshow('LK tracking', disp)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    cv2.destroyAllWindows()
-                    exit()
+                # disp = current_frame.copy()
+                # for (x, y) in curr_pts_good:
+                #     cv2.circle(disp, (int(x), int(y)), 3, (0, 255, 0), -1)
+                # cv2.imshow('LK tracking', disp)
+                # if cv2.waitKey(1) & 0xFF == ord('q'):
+                #     cv2.destroyAllWindows()
+                #     exit()
 
                 # Здесь упрощённо: мы НЕ делаем PnP на этих трекнутых точках
                 # Сохраняем result для следующего кадра
@@ -483,7 +488,7 @@ class FrameProcessor:
                     else:
                         self.logger.warning(f"Not enough matches ({len(inlier_matches)}) for triangulation.")
 
-                # Bundle Adjustment — реже (каждый self.keyframe_BA_interval ключевой кадр)
+    
                 if (len(keyframes) >= self.bundle_adjustment_frames
                         and (len(keyframes) % self.keyframe_BA_interval == 0)):
                     ba_data = self.collect_bundle_adjustment_data(keyframes[-self.bundle_adjustment_frames:], map_points)
@@ -492,7 +497,6 @@ class FrameProcessor:
 
                         # Запуск BA
                         ba = BundleAdjustment(self.odometry_calculator.camera_matrix)
-                        # Внутри ba.run_bundle_adjustment(...) можно увеличить max_nfev
                         optimized_camera_params, optimized_points_3d = ba.run_bundle_adjustment(
                             camera_params, points_3d, camera_indices, point_indices, points_2d
                         )

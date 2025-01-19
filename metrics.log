@@ -1,0 +1,63 @@
+2025-01-19 03:13:17,555 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-19 03:13:17,565 - INFO - [INIT] Frame 2, median_angle_deg=36.92, num_inliers=534
+2025-01-19 03:13:17,919 - INFO - [PnP] Frame 3, inliers_pnp=160
+2025-01-19 03:13:18,242 - INFO - [BA] Initial cost=9050201.70, Final cost=1547.16, Num iterations=13
+2025-01-19 03:13:18,536 - INFO - [PnP] Frame 4, inliers_pnp=51
+2025-01-19 03:13:18,847 - INFO - [PnP] Frame 5, inliers_pnp=91
+2025-01-19 03:13:19,143 - INFO - [PnP] Frame 6, inliers_pnp=30
+2025-01-19 03:13:19,316 - INFO - [BA] Initial cost=110567422.76, Final cost=55222524.64, Num iterations=7
+2025-01-19 03:13:19,672 - INFO - [PnP] Frame 7, inliers_pnp=96
+2025-01-19 03:13:19,998 - INFO - [PnP] Frame 8, inliers_pnp=69
+2025-01-19 03:13:20,342 - INFO - [PnP] Frame 9, inliers_pnp=59
+2025-01-19 03:13:20,479 - INFO - [BA] Initial cost=288799598.93, Final cost=164947564.49, Num iterations=10
+2025-01-19 03:13:20,825 - INFO - [PnP] Frame 10, inliers_pnp=6
+2025-01-19 03:13:21,222 - INFO - [PnP] Frame 11, inliers_pnp=20
+2025-01-19 03:13:21,761 - INFO - [PnP] Frame 12, inliers_pnp=24
+2025-01-19 03:13:22,258 - INFO - [BA] Initial cost=572510813.70, Final cost=316425887.99, Num iterations=8
+2025-01-19 03:13:23,276 - INFO - [PnP] Frame 13, inliers_pnp=5
+2025-01-19 03:13:24,382 - INFO - [PnP] Frame 14, inliers_pnp=5
+2025-01-19 03:13:25,439 - INFO - [PnP] Frame 15, inliers_pnp=7
+2025-01-19 03:13:25,980 - INFO - [BA] Initial cost=592592601.77, Final cost=304186585.57, Num iterations=9
+2025-01-19 03:13:27,116 - INFO - [PnP] Frame 16, inliers_pnp=15
+2025-01-19 03:13:28,278 - INFO - [PnP] Frame 17, inliers_pnp=12
+2025-01-19 03:13:29,363 - INFO - [PnP] Frame 18, inliers_pnp=16
+2025-01-19 03:13:30,030 - INFO - [BA] Initial cost=612243381.74, Final cost=285785342.43, Num iterations=9
+2025-01-19 03:13:32,795 - INFO - [PnP] Frame 22, inliers_pnp=4
+2025-01-19 03:13:33,994 - INFO - [PnP] Frame 23, inliers_pnp=5
+2025-01-19 03:13:37,882 - INFO - [LOST] Frame 29, lost_frames_count=6
+2025-01-19 03:13:39,044 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-19 03:13:39,078 - INFO - [INIT] Frame 31, median_angle_deg=82.65, num_inliers=507
+2025-01-19 03:13:39,729 - INFO - [PnP] Frame 32, inliers_pnp=163
+2025-01-19 03:13:40,459 - INFO - [PnP] Frame 33, inliers_pnp=98
+2025-01-19 03:13:41,227 - INFO - [PnP] Frame 34, inliers_pnp=182
+2025-01-19 03:13:41,976 - INFO - [PnP] Frame 35, inliers_pnp=128
+2025-01-19 03:13:42,692 - INFO - [PnP] Frame 36, inliers_pnp=100
+2025-01-19 03:13:44,391 - INFO - [BA] Initial cost=111852092.41, Final cost=22980296.65, Num iterations=20
+2025-01-19 03:13:47,924 - INFO - [LOST] Frame 42, lost_frames_count=6
+2025-01-19 03:13:48,985 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-19 03:13:49,017 - INFO - [INIT] Frame 44, median_angle_deg=82.07, num_inliers=481
+2025-01-19 03:13:49,669 - INFO - [PnP] Frame 45, inliers_pnp=171
+2025-01-19 03:13:50,385 - INFO - [PnP] Frame 46, inliers_pnp=281
+2025-01-19 03:13:51,188 - INFO - [PnP] Frame 47, inliers_pnp=206
+2025-01-19 03:13:51,980 - INFO - [PnP] Frame 48, inliers_pnp=172
+2025-01-19 03:13:54,080 - INFO - [BA] Initial cost=43242248.87, Final cost=11092744.28, Num iterations=21
+2025-01-19 03:13:56,606 - INFO - [PnP] Frame 52, inliers_pnp=5
+2025-01-19 03:14:00,102 - INFO - [LOST] Frame 58, lost_frames_count=6
+2025-01-19 03:14:01,197 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-19 03:14:01,232 - INFO - [INIT] Frame 60, median_angle_deg=84.53, num_inliers=518
+2025-01-19 03:14:01,900 - INFO - [PnP] Frame 61, inliers_pnp=184
+2025-01-19 03:14:02,524 - INFO - [PnP] Frame 62, inliers_pnp=135
+2025-01-19 03:14:03,152 - INFO - [PnP] Frame 63, inliers_pnp=99
+2025-01-19 03:14:03,848 - INFO - [PnP] Frame 64, inliers_pnp=231
+2025-01-19 03:14:04,657 - INFO - [PnP] Frame 65, inliers_pnp=170
+2025-01-19 03:14:05,453 - INFO - [PnP] Frame 66, inliers_pnp=132
+2025-01-19 03:14:07,803 - INFO - [BA] Initial cost=73213074.13, Final cost=15952683.07, Num iterations=25
+2025-01-19 03:14:11,367 - INFO - [LOST] Frame 72, lost_frames_count=6
+2025-01-19 03:14:12,509 - INFO - [MATRIX] Homography matrix chosen for decomposition.
+2025-01-19 03:14:12,539 - INFO - [INIT] Frame 74, median_angle_deg=84.99, num_inliers=502
+2025-01-19 03:14:13,173 - INFO - [PnP] Frame 75, inliers_pnp=185
+2025-01-19 03:14:13,874 - INFO - [PnP] Frame 76, inliers_pnp=330
+2025-01-19 03:14:14,638 - INFO - [PnP] Frame 77, inliers_pnp=229
+2025-01-19 03:14:15,504 - INFO - [PnP] Frame 78, inliers_pnp=195
+2025-01-19 03:14:16,361 - INFO - [BA] Initial cost=57651981.23, Final cost=14007350.21, Num iterations=16
+2025-01-19 03:14:16,956 - INFO - [PnP] Frame 80, inliers_pnp=4
