@@ -1,180 +1,148 @@
-2025-01-22 00:25:46,332 - INFO - [MATRIX] Homography matrix chosen for decomposition.
-2025-01-22 00:25:46,355 - INFO - [INIT] Frame 2, median_angle_deg=81.39, num_inliers=1434
-2025-01-22 00:25:46,499 - INFO - [PnP] Frame 3, inliers_pnp=321
-2025-01-22 00:25:46,627 - INFO - [PnP] Frame 4, inliers_pnp=62
-2025-01-22 00:25:46,823 - INFO - [PnP] Frame 5, inliers_pnp=115
-2025-01-22 00:25:46,953 - INFO - [BA] Initial cost=200184.59, Final cost=200184.59, Num iterations=16
-2025-01-22 00:25:47,082 - INFO - [PnP] Frame 6, inliers_pnp=106
-2025-01-22 00:25:47,289 - INFO - [PnP] Frame 7, inliers_pnp=230
-2025-01-22 00:25:47,523 - INFO - [PnP] Frame 8, inliers_pnp=79
-2025-01-22 00:25:47,785 - INFO - [PnP] Frame 9, inliers_pnp=125
-2025-01-22 00:25:48,047 - INFO - [PnP] Frame 10, inliers_pnp=113
-2025-01-22 00:25:48,341 - INFO - [BA] Initial cost=3586126.04, Final cost=781096.35, Num iterations=21
-2025-01-22 00:25:48,583 - INFO - [PnP] Frame 11, inliers_pnp=116
-2025-01-22 00:25:48,869 - INFO - [PnP] Frame 12, inliers_pnp=97
-2025-01-22 00:25:49,167 - INFO - [PnP] Frame 13, inliers_pnp=144
-2025-01-22 00:25:49,472 - INFO - [PnP] Frame 14, inliers_pnp=128
-2025-01-22 00:25:49,780 - INFO - [PnP] Frame 15, inliers_pnp=165
-2025-01-22 00:25:49,939 - INFO - [BA] Initial cost=4115015.97, Final cost=2471685.23, Num iterations=18
-2025-01-22 00:25:50,226 - INFO - [PnP] Frame 16, inliers_pnp=168
-2025-01-22 00:25:50,522 - INFO - [PnP] Frame 17, inliers_pnp=129
-2025-01-22 00:25:50,822 - INFO - [PnP] Frame 18, inliers_pnp=116
-2025-01-22 00:25:51,148 - INFO - [PnP] Frame 19, inliers_pnp=157
-2025-01-22 00:25:51,460 - INFO - [PnP] Frame 20, inliers_pnp=90
-2025-01-22 00:25:51,682 - INFO - [BA] Initial cost=2200506.33, Final cost=1068448.90, Num iterations=26
-2025-01-22 00:25:51,989 - INFO - [PnP] Frame 21, inliers_pnp=86
-2025-01-22 00:25:52,301 - INFO - [PnP] Frame 22, inliers_pnp=112
-2025-01-22 00:25:52,650 - INFO - [PnP] Frame 23, inliers_pnp=92
-2025-01-22 00:25:52,993 - INFO - [PnP] Frame 24, inliers_pnp=65
-2025-01-22 00:25:53,355 - INFO - [PnP] Frame 25, inliers_pnp=86
-2025-01-22 00:25:53,575 - INFO - [BA] Initial cost=5025810.45, Final cost=4937524.76, Num iterations=24
-2025-01-22 00:25:53,902 - INFO - [PnP] Frame 26, inliers_pnp=101
-2025-01-22 00:25:54,256 - INFO - [PnP] Frame 27, inliers_pnp=111
-2025-01-22 00:25:54,612 - INFO - [PnP] Frame 28, inliers_pnp=92
-2025-01-22 00:25:54,974 - INFO - [PnP] Frame 29, inliers_pnp=71
-2025-01-22 00:25:55,345 - INFO - [PnP] Frame 30, inliers_pnp=92
-2025-01-22 00:25:55,560 - INFO - [BA] Initial cost=6154499.38, Final cost=1624063.10, Num iterations=22
-2025-01-22 00:25:55,892 - INFO - [PnP] Frame 31, inliers_pnp=66
-2025-01-22 00:25:56,236 - INFO - [PnP] Frame 32, inliers_pnp=69
-2025-01-22 00:25:56,592 - INFO - [PnP] Frame 33, inliers_pnp=75
-2025-01-22 00:25:56,969 - INFO - [PnP] Frame 34, inliers_pnp=80
-2025-01-22 00:25:57,342 - INFO - [PnP] Frame 35, inliers_pnp=72
-2025-01-22 00:25:57,502 - INFO - [BA] Initial cost=5017852.07, Final cost=6267988.14, Num iterations=20
-2025-01-22 00:25:57,844 - INFO - [PnP] Frame 36, inliers_pnp=61
-2025-01-22 00:25:58,202 - INFO - [PnP] Frame 37, inliers_pnp=85
-2025-01-22 00:25:58,541 - INFO - [PnP] Frame 38, inliers_pnp=73
-2025-01-22 00:25:58,885 - INFO - [PnP] Frame 39, inliers_pnp=65
-2025-01-22 00:25:59,228 - INFO - [PnP] Frame 40, inliers_pnp=60
-2025-01-22 00:25:59,400 - INFO - [BA] Initial cost=4181457.33, Final cost=971653.40, Num iterations=24
-2025-01-22 00:25:59,711 - INFO - [PnP] Frame 41, inliers_pnp=50
-2025-01-22 00:25:59,988 - INFO - [PnP] Frame 42, inliers_pnp=40
-2025-01-22 00:26:00,268 - INFO - [PnP] Frame 43, inliers_pnp=45
-2025-01-22 00:26:00,534 - INFO - [PnP] Frame 44, inliers_pnp=32
-2025-01-22 00:26:00,799 - INFO - [PnP] Frame 45, inliers_pnp=52
-2025-01-22 00:26:00,869 - INFO - [BA] Initial cost=3404534.72, Final cost=2413660.99, Num iterations=17
-2025-01-22 00:26:01,123 - INFO - [PnP] Frame 46, inliers_pnp=43
-2025-01-22 00:26:01,404 - INFO - [PnP] Frame 47, inliers_pnp=44
-2025-01-22 00:26:01,672 - INFO - [PnP] Frame 48, inliers_pnp=38
-2025-01-22 00:26:01,938 - INFO - [PnP] Frame 49, inliers_pnp=39
-2025-01-22 00:26:02,186 - INFO - [PnP] Frame 50, inliers_pnp=39
-2025-01-22 00:26:02,274 - INFO - [BA] Initial cost=2013524.97, Final cost=342044.31, Num iterations=19
-2025-01-22 00:26:02,513 - INFO - [PnP] Frame 51, inliers_pnp=35
-2025-01-22 00:26:02,747 - INFO - [PnP] Frame 52, inliers_pnp=24
-2025-01-22 00:26:02,981 - INFO - [PnP] Frame 53, inliers_pnp=39
-2025-01-22 00:26:03,216 - INFO - [PnP] Frame 54, inliers_pnp=23
-2025-01-22 00:26:03,450 - INFO - [PnP] Frame 55, inliers_pnp=41
-2025-01-22 00:26:03,527 - INFO - [BA] Initial cost=1441279.64, Final cost=856781.22, Num iterations=19
-2025-01-22 00:26:03,744 - INFO - [PnP] Frame 56, inliers_pnp=33
-2025-01-22 00:26:03,979 - INFO - [PnP] Frame 57, inliers_pnp=32
-2025-01-22 00:26:04,211 - INFO - [PnP] Frame 58, inliers_pnp=34
-2025-01-22 00:26:04,447 - INFO - [PnP] Frame 59, inliers_pnp=43
-2025-01-22 00:26:04,682 - INFO - [PnP] Frame 60, inliers_pnp=51
-2025-01-22 00:26:04,771 - INFO - [BA] Initial cost=921839.39, Final cost=288657.25, Num iterations=21
-2025-01-22 00:26:05,013 - INFO - [PnP] Frame 61, inliers_pnp=47
-2025-01-22 00:26:05,279 - INFO - [PnP] Frame 62, inliers_pnp=51
-2025-01-22 00:26:05,527 - INFO - [PnP] Frame 63, inliers_pnp=41
-2025-01-22 00:26:05,761 - INFO - [PnP] Frame 64, inliers_pnp=41
-2025-01-22 00:26:06,010 - INFO - [PnP] Frame 65, inliers_pnp=31
-2025-01-22 00:26:06,060 - INFO - [BA] Initial cost=1809526.71, Final cost=1809526.71, Num iterations=16
-2025-01-22 00:26:06,291 - INFO - [PnP] Frame 66, inliers_pnp=32
-2025-01-22 00:26:06,584 - INFO - [PnP] Frame 67, inliers_pnp=37
-2025-01-22 00:26:06,834 - INFO - [PnP] Frame 68, inliers_pnp=35
-2025-01-22 00:26:07,067 - INFO - [PnP] Frame 69, inliers_pnp=40
-2025-01-22 00:26:07,299 - INFO - [PnP] Frame 70, inliers_pnp=25
-2025-01-22 00:26:07,421 - INFO - [BA] Initial cost=738295.50, Final cost=236593.54, Num iterations=23
-2025-01-22 00:26:07,673 - INFO - [PnP] Frame 71, inliers_pnp=29
-2025-01-22 00:26:07,925 - INFO - [PnP] Frame 72, inliers_pnp=27
-2025-01-22 00:26:08,172 - INFO - [PnP] Frame 73, inliers_pnp=29
-2025-01-22 00:26:08,418 - INFO - [PnP] Frame 74, inliers_pnp=22
-2025-01-22 00:26:08,671 - INFO - [PnP] Frame 75, inliers_pnp=27
-2025-01-22 00:26:08,723 - INFO - [BA] Initial cost=2241563.35, Final cost=1932383.54, Num iterations=15
-2025-01-22 00:26:08,966 - INFO - [PnP] Frame 76, inliers_pnp=21
-2025-01-22 00:26:09,215 - INFO - [PnP] Frame 77, inliers_pnp=23
-2025-01-22 00:26:09,449 - INFO - [PnP] Frame 78, inliers_pnp=14
-2025-01-22 00:26:09,699 - INFO - [PnP] Frame 79, inliers_pnp=12
-2025-01-22 00:26:09,932 - INFO - [PnP] Frame 80, inliers_pnp=20
-2025-01-22 00:26:09,979 - INFO - [BA] Initial cost=1779994.51, Final cost=1177133.11, Num iterations=15
-2025-01-22 00:26:10,198 - INFO - [PnP] Frame 81, inliers_pnp=14
-2025-01-22 00:26:10,431 - INFO - [PnP] Frame 82, inliers_pnp=15
-2025-01-22 00:26:10,664 - INFO - [PnP] Frame 83, inliers_pnp=19
-2025-01-22 00:26:10,898 - INFO - [PnP] Frame 84, inliers_pnp=21
-2025-01-22 00:26:11,149 - INFO - [PnP] Frame 85, inliers_pnp=21
-2025-01-22 00:26:11,193 - INFO - [BA] Initial cost=1987413.62, Final cost=1294156.73, Num iterations=14
-2025-01-22 00:26:11,431 - INFO - [PnP] Frame 86, inliers_pnp=12
-2025-01-22 00:26:11,675 - INFO - [PnP] Frame 87, inliers_pnp=10
-2025-01-22 00:26:11,929 - INFO - [PnP] Frame 88, inliers_pnp=14
-2025-01-22 00:26:12,173 - INFO - [PnP] Frame 89, inliers_pnp=19
-2025-01-22 00:26:12,406 - INFO - [PnP] Frame 90, inliers_pnp=23
-2025-01-22 00:26:12,445 - INFO - [BA] Initial cost=1414083.14, Final cost=1414083.14, Num iterations=16
-2025-01-22 00:26:12,672 - INFO - [PnP] Frame 91, inliers_pnp=14
-2025-01-22 00:26:12,907 - INFO - [PnP] Frame 92, inliers_pnp=17
-2025-01-22 00:26:13,152 - INFO - [PnP] Frame 93, inliers_pnp=20
-2025-01-22 00:26:13,385 - INFO - [PnP] Frame 94, inliers_pnp=18
-2025-01-22 00:26:13,621 - INFO - [PnP] Frame 95, inliers_pnp=22
-2025-01-22 00:26:13,672 - INFO - [BA] Initial cost=1404467.83, Final cost=1120895.98, Num iterations=15
-2025-01-22 00:26:13,900 - INFO - [PnP] Frame 96, inliers_pnp=22
-2025-01-22 00:26:14,135 - INFO - [PnP] Frame 97, inliers_pnp=20
-2025-01-22 00:26:14,383 - INFO - [PnP] Frame 98, inliers_pnp=37
-2025-01-22 00:26:14,616 - INFO - [PnP] Frame 99, inliers_pnp=12
-2025-01-22 00:26:14,848 - INFO - [PnP] Frame 100, inliers_pnp=24
-2025-01-22 00:26:14,903 - INFO - [BA] Initial cost=1044725.29, Final cost=772506.38, Num iterations=16
-2025-01-22 00:26:15,127 - INFO - [PnP] Frame 101, inliers_pnp=23
-2025-01-22 00:26:15,384 - INFO - [PnP] Frame 102, inliers_pnp=15
-2025-01-22 00:26:15,651 - INFO - [PnP] Frame 103, inliers_pnp=31
-2025-01-22 00:26:15,964 - INFO - [PnP] Frame 104, inliers_pnp=35
-2025-01-22 00:26:16,230 - INFO - [PnP] Frame 105, inliers_pnp=24
-2025-01-22 00:26:16,293 - INFO - [BA] Initial cost=1395008.18, Final cost=1175381.46, Num iterations=17
-2025-01-22 00:26:16,523 - INFO - [PnP] Frame 106, inliers_pnp=39
-2025-01-22 00:26:16,756 - INFO - [PnP] Frame 107, inliers_pnp=20
-2025-01-22 00:26:17,004 - INFO - [PnP] Frame 108, inliers_pnp=31
-2025-01-22 00:26:17,238 - INFO - [PnP] Frame 109, inliers_pnp=19
-2025-01-22 00:26:17,476 - INFO - [PnP] Frame 110, inliers_pnp=24
-2025-01-22 00:26:17,528 - INFO - [BA] Initial cost=493591.61, Final cost=304894.56, Num iterations=17
-2025-01-22 00:26:17,751 - INFO - [PnP] Frame 111, inliers_pnp=25
-2025-01-22 00:26:17,985 - INFO - [PnP] Frame 112, inliers_pnp=26
-2025-01-22 00:26:18,218 - INFO - [PnP] Frame 113, inliers_pnp=24
-2025-01-22 00:26:18,451 - INFO - [PnP] Frame 114, inliers_pnp=37
-2025-01-22 00:26:18,687 - INFO - [PnP] Frame 115, inliers_pnp=21
-2025-01-22 00:26:18,733 - INFO - [BA] Initial cost=1185739.00, Final cost=662879.91, Num iterations=15
-2025-01-22 00:26:18,955 - INFO - [PnP] Frame 116, inliers_pnp=27
-2025-01-22 00:26:19,191 - INFO - [PnP] Frame 117, inliers_pnp=24
-2025-01-22 00:26:19,422 - INFO - [PnP] Frame 118, inliers_pnp=23
-2025-01-22 00:26:19,659 - INFO - [PnP] Frame 119, inliers_pnp=20
-2025-01-22 00:26:19,904 - INFO - [PnP] Frame 120, inliers_pnp=44
-2025-01-22 00:26:19,960 - INFO - [BA] Initial cost=864651.21, Final cost=679463.20, Num iterations=18
-2025-01-22 00:26:20,183 - INFO - [PnP] Frame 121, inliers_pnp=38
-2025-01-22 00:26:20,434 - INFO - [PnP] Frame 122, inliers_pnp=35
-2025-01-22 00:26:20,666 - INFO - [PnP] Frame 123, inliers_pnp=46
-2025-01-22 00:26:20,899 - INFO - [PnP] Frame 124, inliers_pnp=45
-2025-01-22 00:26:21,133 - INFO - [PnP] Frame 125, inliers_pnp=25
-2025-01-22 00:26:21,178 - INFO - [BA] Initial cost=1562957.12, Final cost=1562957.12, Num iterations=16
-2025-01-22 00:26:21,397 - INFO - [PnP] Frame 126, inliers_pnp=37
-2025-01-22 00:26:21,631 - INFO - [PnP] Frame 127, inliers_pnp=40
-2025-01-22 00:26:21,867 - INFO - [PnP] Frame 128, inliers_pnp=38
-2025-01-22 00:26:22,099 - INFO - [PnP] Frame 129, inliers_pnp=43
-2025-01-22 00:26:22,332 - INFO - [PnP] Frame 130, inliers_pnp=40
-2025-01-22 00:26:22,388 - INFO - [BA] Initial cost=1496256.04, Final cost=962309.30, Num iterations=18
-2025-01-22 00:26:22,611 - INFO - [PnP] Frame 131, inliers_pnp=53
-2025-01-22 00:26:22,846 - INFO - [PnP] Frame 132, inliers_pnp=53
-2025-01-22 00:26:23,083 - INFO - [PnP] Frame 133, inliers_pnp=48
-2025-01-22 00:26:23,316 - INFO - [PnP] Frame 134, inliers_pnp=45
-2025-01-22 00:26:23,553 - INFO - [PnP] Frame 135, inliers_pnp=42
-2025-01-22 00:26:23,604 - INFO - [BA] Initial cost=1192505.60, Final cost=1662773.74, Num iterations=17
-2025-01-22 00:26:23,832 - INFO - [PnP] Frame 136, inliers_pnp=32
-2025-01-22 00:26:24,065 - INFO - [PnP] Frame 137, inliers_pnp=71
-2025-01-22 00:26:24,297 - INFO - [PnP] Frame 138, inliers_pnp=55
-2025-01-22 00:26:24,534 - INFO - [PnP] Frame 139, inliers_pnp=72
-2025-01-22 00:26:24,766 - INFO - [PnP] Frame 140, inliers_pnp=50
-2025-01-22 00:26:24,827 - INFO - [BA] Initial cost=1064676.74, Final cost=725965.65, Num iterations=18
-2025-01-22 00:26:25,046 - INFO - [PnP] Frame 141, inliers_pnp=56
-2025-01-22 00:26:25,263 - INFO - [PnP] Frame 142, inliers_pnp=43
-2025-01-22 00:26:25,497 - INFO - [PnP] Frame 143, inliers_pnp=32
-2025-01-22 00:26:25,732 - INFO - [PnP] Frame 144, inliers_pnp=26
-2025-01-22 00:26:25,993 - INFO - [PnP] Frame 145, inliers_pnp=36
-2025-01-22 00:26:26,048 - INFO - [BA] Initial cost=1238544.68, Final cost=1848313.27, Num iterations=18
-2025-01-22 00:26:26,291 - INFO - [PnP] Frame 146, inliers_pnp=24
-2025-01-22 00:26:26,522 - INFO - [PnP] Frame 147, inliers_pnp=18
-2025-01-22 00:26:26,757 - INFO - [PnP] Frame 148, inliers_pnp=23
-2025-01-22 00:26:26,989 - INFO - [PnP] Frame 149, inliers_pnp=16
-2025-01-22 00:26:27,222 - INFO - [PnP] Frame 150, inliers_pnp=17
-2025-01-22 00:26:27,316 - INFO - [BA] Initial cost=1033160.99, Final cost=254784.28, Num iterations=21
+2025-01-22 00:45:59,090 - INFO - [BA] Initial cost=242311.65, Final cost=242311.65, Num iterations=15
+2025-01-22 00:45:59,309 - INFO - [BA] Initial cost=58540.92, Final cost=42850.05, Num iterations=20
+2025-01-22 00:45:59,509 - INFO - [BA] Initial cost=162948.28, Final cost=130406.21, Num iterations=18
+2025-01-22 00:45:59,705 - INFO - [BA] Initial cost=93498.36, Final cost=56172.99, Num iterations=19
+2025-01-22 00:45:59,907 - INFO - [BA] Initial cost=142967.47, Final cost=69686.94, Num iterations=19
+2025-01-22 00:46:00,137 - INFO - [BA] Initial cost=98252.18, Final cost=24449.71, Num iterations=20
+2025-01-22 00:46:00,319 - INFO - [BA] Initial cost=191498.27, Final cost=160652.46, Num iterations=19
+2025-01-22 00:46:00,529 - INFO - [BA] Initial cost=279295.90, Final cost=201746.32, Num iterations=21
+2025-01-22 00:46:00,745 - INFO - [BA] Initial cost=176304.57, Final cost=69445.15, Num iterations=22
+2025-01-22 00:46:00,928 - INFO - [BA] Initial cost=401156.45, Final cost=292203.59, Num iterations=19
+2025-01-22 00:46:01,101 - INFO - [BA] Initial cost=431744.28, Final cost=350542.11, Num iterations=18
+2025-01-22 00:46:01,296 - INFO - [BA] Initial cost=429313.07, Final cost=538603.05, Num iterations=20
+2025-01-22 00:46:01,501 - INFO - [BA] Initial cost=907163.73, Final cost=768397.94, Num iterations=18
+2025-01-22 00:46:01,691 - INFO - [BA] Initial cost=485920.12, Final cost=322313.36, Num iterations=23
+2025-01-22 00:46:01,884 - INFO - [BA] Initial cost=478430.77, Final cost=339744.38, Num iterations=22
+2025-01-22 00:46:02,114 - INFO - [BA] Initial cost=716100.62, Final cost=472652.02, Num iterations=25
+2025-01-22 00:46:02,280 - INFO - [BA] Initial cost=666958.85, Final cost=531959.59, Num iterations=19
+2025-01-22 00:46:02,459 - INFO - [BA] Initial cost=431190.23, Final cost=273164.10, Num iterations=18
+2025-01-22 00:46:02,651 - INFO - [BA] Initial cost=615612.61, Final cost=399622.08, Num iterations=20
+2025-01-22 00:46:02,871 - INFO - [BA] Initial cost=666016.20, Final cost=345745.44, Num iterations=26
+2025-01-22 00:46:03,091 - INFO - [BA] Initial cost=680869.16, Final cost=377446.61, Num iterations=22
+2025-01-22 00:46:03,282 - INFO - [BA] Initial cost=576186.19, Final cost=355626.37, Num iterations=18
+2025-01-22 00:46:03,488 - INFO - [BA] Initial cost=955346.90, Final cost=518415.34, Num iterations=21
+2025-01-22 00:46:03,683 - INFO - [BA] Initial cost=753173.76, Final cost=336961.48, Num iterations=22
+2025-01-22 00:46:03,860 - INFO - [BA] Initial cost=798474.98, Final cost=415357.81, Num iterations=21
+2025-01-22 00:46:04,046 - INFO - [BA] Initial cost=522498.05, Final cost=176014.03, Num iterations=19
+2025-01-22 00:46:04,224 - INFO - [BA] Initial cost=491812.59, Final cost=227047.49, Num iterations=19
+2025-01-22 00:46:04,421 - INFO - [BA] Initial cost=848589.66, Final cost=442664.49, Num iterations=20
+2025-01-22 00:46:04,613 - INFO - [BA] Initial cost=989052.42, Final cost=573141.41, Num iterations=19
+2025-01-22 00:46:04,830 - INFO - [BA] Initial cost=598217.60, Final cost=260317.17, Num iterations=25
+2025-01-22 00:46:05,015 - INFO - [BA] Initial cost=781226.67, Final cost=459782.70, Num iterations=19
+2025-01-22 00:46:05,215 - INFO - [BA] Initial cost=615797.60, Final cost=315442.61, Num iterations=22
+2025-01-22 00:46:05,396 - INFO - [BA] Initial cost=788223.03, Final cost=482829.03, Num iterations=20
+2025-01-22 00:46:05,620 - INFO - [BA] Initial cost=752272.25, Final cost=356237.53, Num iterations=24
+2025-01-22 00:46:05,806 - INFO - [BA] Initial cost=940726.16, Final cost=556751.88, Num iterations=19
+2025-01-22 00:46:06,010 - INFO - [BA] Initial cost=859484.38, Final cost=473330.54, Num iterations=22
+2025-01-22 00:46:06,227 - INFO - [BA] Initial cost=796923.25, Final cost=485099.96, Num iterations=22
+2025-01-22 00:46:06,413 - INFO - [BA] Initial cost=437399.77, Final cost=334088.28, Num iterations=18
+2025-01-22 00:46:06,562 - INFO - [BA] Initial cost=518630.39, Final cost=446464.21, Num iterations=18
+2025-01-22 00:46:06,736 - INFO - [BA] Initial cost=545365.80, Final cost=366522.48, Num iterations=20
+2025-01-22 00:46:06,939 - INFO - [BA] Initial cost=1173084.71, Final cost=724566.96, Num iterations=23
+2025-01-22 00:46:07,164 - INFO - [BA] Initial cost=1011945.59, Final cost=517597.43, Num iterations=29
+2025-01-22 00:46:07,311 - INFO - [BA] Initial cost=369285.45, Final cost=264210.13, Num iterations=18
+2025-01-22 00:46:07,482 - INFO - [BA] Initial cost=495975.57, Final cost=323172.97, Num iterations=20
+2025-01-22 00:46:07,669 - INFO - [BA] Initial cost=765849.20, Final cost=460215.57, Num iterations=22
+2025-01-22 00:46:07,806 - INFO - [BA] Initial cost=512686.46, Final cost=383833.33, Num iterations=17
+2025-01-22 00:46:07,988 - INFO - [BA] Initial cost=557357.02, Final cost=371806.97, Num iterations=20
+2025-01-22 00:46:08,171 - INFO - [BA] Initial cost=922132.50, Final cost=527455.07, Num iterations=21
+2025-01-22 00:46:08,314 - INFO - [BA] Initial cost=1115423.94, Final cost=764158.22, Num iterations=19
+2025-01-22 00:46:08,477 - INFO - [BA] Initial cost=494669.13, Final cost=337070.20, Num iterations=20
+2025-01-22 00:46:08,624 - INFO - [BA] Initial cost=672452.24, Final cost=534909.25, Num iterations=18
+2025-01-22 00:46:08,768 - INFO - [BA] Initial cost=604635.19, Final cost=572908.12, Num iterations=17
+2025-01-22 00:46:08,899 - INFO - [BA] Initial cost=499556.38, Final cost=409376.75, Num iterations=17
+2025-01-22 00:46:09,071 - INFO - [BA] Initial cost=786957.91, Final cost=454918.26, Num iterations=21
+2025-01-22 00:46:09,257 - INFO - [BA] Initial cost=1071083.78, Final cost=462535.47, Num iterations=22
+2025-01-22 00:46:09,450 - INFO - [BA] Initial cost=778757.29, Final cost=439866.92, Num iterations=19
+2025-01-22 00:46:09,614 - INFO - [BA] Initial cost=1181004.03, Final cost=772404.26, Num iterations=20
+2025-01-22 00:46:09,862 - INFO - [BA] Initial cost=722632.62, Final cost=190185.05, Num iterations=29
+2025-01-22 00:46:10,093 - INFO - [BA] Initial cost=1108752.09, Final cost=619486.70, Num iterations=27
+2025-01-22 00:46:10,245 - INFO - [BA] Initial cost=977274.05, Final cost=864378.19, Num iterations=18
+2025-01-22 00:46:10,405 - INFO - [BA] Initial cost=1078969.11, Final cost=858194.05, Num iterations=19
+2025-01-22 00:46:10,559 - INFO - [BA] Initial cost=1158010.21, Final cost=875261.75, Num iterations=18
+2025-01-22 00:46:10,708 - INFO - [BA] Initial cost=1211043.82, Final cost=1351559.75, Num iterations=17
+2025-01-22 00:46:10,868 - INFO - [BA] Initial cost=927618.41, Final cost=751741.99, Num iterations=17
+2025-01-22 00:46:11,119 - INFO - [BA] Initial cost=731328.52, Final cost=328017.69, Num iterations=34
+2025-01-22 00:46:11,320 - INFO - [BA] Initial cost=1583073.60, Final cost=650105.48, Num iterations=27
+2025-01-22 00:46:11,439 - INFO - [BA] Initial cost=1040637.27, Final cost=969677.86, Num iterations=16
+2025-01-22 00:46:11,573 - INFO - [BA] Initial cost=1502869.11, Final cost=1257895.78, Num iterations=17
+2025-01-22 00:46:11,725 - INFO - [BA] Initial cost=552931.03, Final cost=452797.06, Num iterations=16
+2025-01-22 00:46:11,857 - INFO - [BA] Initial cost=625763.10, Final cost=538852.95, Num iterations=16
+2025-01-22 00:46:12,017 - INFO - [BA] Initial cost=457385.77, Final cost=170465.30, Num iterations=22
+2025-01-22 00:46:12,169 - INFO - [BA] Initial cost=985526.89, Final cost=690464.37, Num iterations=18
+2025-01-22 00:46:12,313 - INFO - [BA] Initial cost=1163232.70, Final cost=738645.08, Num iterations=16
+2025-01-22 00:46:12,511 - INFO - [BA] Initial cost=801413.42, Final cost=173452.52, Num iterations=23
+2025-01-22 00:46:12,723 - INFO - [BA] Initial cost=551143.05, Final cost=165531.95, Num iterations=26
+2025-01-22 00:46:12,872 - INFO - [BA] Initial cost=652788.64, Final cost=516020.54, Num iterations=17
+2025-01-22 00:46:13,015 - INFO - [BA] Initial cost=985467.84, Final cost=704121.55, Num iterations=16
+2025-01-22 00:46:13,143 - INFO - [BA] Initial cost=565997.89, Final cost=472059.80, Num iterations=15
+2025-01-22 00:46:13,312 - INFO - [BA] Initial cost=830789.73, Final cost=232252.32, Num iterations=20
+2025-01-22 00:46:13,462 - INFO - [BA] Initial cost=1147307.51, Final cost=602684.60, Num iterations=16
+2025-01-22 00:46:13,715 - INFO - [BA] Initial cost=878078.15, Final cost=172315.74, Num iterations=32
+2025-01-22 00:46:13,846 - INFO - [BA] Initial cost=533954.55, Final cost=406001.82, Num iterations=17
+2025-01-22 00:46:13,957 - INFO - [BA] Initial cost=889648.06, Final cost=889648.06, Num iterations=14
+2025-01-22 00:46:14,097 - INFO - [BA] Initial cost=517966.60, Final cost=457297.41, Num iterations=15
+2025-01-22 00:46:14,267 - INFO - [BA] Initial cost=771662.45, Final cost=203727.49, Num iterations=20
+2025-01-22 00:46:14,390 - INFO - [BA] Initial cost=744512.94, Final cost=515649.25, Num iterations=15
+2025-01-22 00:46:14,532 - INFO - [BA] Initial cost=859531.62, Final cost=558184.55, Num iterations=14
+2025-01-22 00:46:14,679 - INFO - [BA] Initial cost=1220916.08, Final cost=561365.91, Num iterations=19
+2025-01-22 00:46:14,933 - INFO - [BA] Initial cost=1266887.74, Final cost=111092.61, Num iterations=30
+2025-01-22 00:46:15,060 - INFO - [BA] Initial cost=1042168.74, Final cost=638588.52, Num iterations=17
+2025-01-22 00:46:15,203 - INFO - [BA] Initial cost=1098274.06, Final cost=676908.92, Num iterations=16
+2025-01-22 00:46:15,322 - INFO - [BA] Initial cost=754056.66, Final cost=558444.64, Num iterations=17
+2025-01-22 00:46:15,451 - INFO - [BA] Initial cost=955197.84, Final cost=441017.09, Num iterations=17
+2025-01-22 00:46:15,605 - INFO - [BA] Initial cost=739355.96, Final cost=197788.63, Num iterations=19
+2025-01-22 00:46:15,743 - INFO - [BA] Initial cost=896706.42, Final cost=645106.31, Num iterations=16
+2025-01-22 00:46:15,862 - INFO - [BA] Initial cost=500622.81, Final cost=444064.47, Num iterations=16
+2025-01-22 00:46:15,988 - INFO - [BA] Initial cost=756807.18, Final cost=615055.31, Num iterations=15
+2025-01-22 00:46:16,168 - INFO - [BA] Initial cost=638852.56, Final cost=104758.66, Num iterations=19
+2025-01-22 00:46:16,320 - INFO - [BA] Initial cost=1132531.32, Final cost=266199.70, Num iterations=18
+2025-01-22 00:46:16,471 - INFO - [BA] Initial cost=886541.10, Final cost=241252.37, Num iterations=19
+2025-01-22 00:46:16,596 - INFO - [BA] Initial cost=833652.72, Final cost=373120.43, Num iterations=16
+2025-01-22 00:46:16,759 - INFO - [BA] Initial cost=1133276.19, Final cost=303078.05, Num iterations=21
+2025-01-22 00:46:16,986 - INFO - [BA] Initial cost=853457.05, Final cost=144071.50, Num iterations=25
+2025-01-22 00:46:17,141 - INFO - [BA] Initial cost=508098.59, Final cost=239678.34, Num iterations=20
+2025-01-22 00:46:17,297 - INFO - [BA] Initial cost=647301.40, Final cost=367134.89, Num iterations=18
+2025-01-22 00:46:17,423 - INFO - [BA] Initial cost=419712.87, Final cost=342508.16, Num iterations=15
+2025-01-22 00:46:17,568 - INFO - [BA] Initial cost=814531.19, Final cost=467666.43, Num iterations=15
+2025-01-22 00:46:17,722 - INFO - [BA] Initial cost=667633.02, Final cost=77553.93, Num iterations=19
+2025-01-22 00:46:17,886 - INFO - [BA] Initial cost=399693.64, Final cost=303427.31, Num iterations=17
+2025-01-22 00:46:18,087 - INFO - [BA] Initial cost=509596.35, Final cost=78440.80, Num iterations=25
+2025-01-22 00:46:18,269 - INFO - [BA] Initial cost=692018.84, Final cost=456319.76, Num iterations=19
+2025-01-22 00:46:18,419 - INFO - [BA] Initial cost=1142508.07, Final cost=636128.66, Num iterations=21
+2025-01-22 00:46:18,620 - INFO - [BA] Initial cost=386439.19, Final cost=106865.08, Num iterations=26
+2025-01-22 00:46:18,737 - INFO - [BA] Initial cost=703587.93, Final cost=585500.71, Num iterations=16
+2025-01-22 00:46:18,872 - INFO - [BA] Initial cost=566836.64, Final cost=472195.22, Num iterations=16
+2025-01-22 00:46:19,021 - INFO - [BA] Initial cost=486924.95, Final cost=442280.83, Num iterations=17
+2025-01-22 00:46:19,168 - INFO - [BA] Initial cost=547355.02, Final cost=328519.43, Num iterations=17
+2025-01-22 00:46:19,347 - INFO - [BA] Initial cost=362541.44, Final cost=125499.77, Num iterations=21
+2025-01-22 00:46:19,494 - INFO - [BA] Initial cost=417370.33, Final cost=417370.33, Num iterations=16
+2025-01-22 00:46:19,633 - INFO - [BA] Initial cost=515132.42, Final cost=349226.12, Num iterations=17
+2025-01-22 00:46:19,773 - INFO - [BA] Initial cost=697908.34, Final cost=539685.07, Num iterations=17
+2025-01-22 00:46:19,914 - INFO - [BA] Initial cost=1332807.34, Final cost=911799.50, Num iterations=18
+2025-01-22 00:46:20,036 - INFO - [BA] Initial cost=849486.96, Final cost=849486.96, Num iterations=16
+2025-01-22 00:46:20,189 - INFO - [BA] Initial cost=559783.91, Final cost=408669.02, Num iterations=16
+2025-01-22 00:46:20,354 - INFO - [BA] Initial cost=1511387.77, Final cost=783170.38, Num iterations=20
+2025-01-22 00:46:20,486 - INFO - [BA] Initial cost=633502.49, Final cost=450118.28, Num iterations=16
+2025-01-22 00:46:20,611 - INFO - [BA] Initial cost=652951.62, Final cost=481435.75, Num iterations=16
+2025-01-22 00:46:20,744 - INFO - [BA] Initial cost=544317.01, Final cost=334414.89, Num iterations=17
+2025-01-22 00:46:20,886 - INFO - [BA] Initial cost=594303.60, Final cost=360442.18, Num iterations=17
+2025-01-22 00:46:21,021 - INFO - [BA] Initial cost=625104.52, Final cost=291669.11, Num iterations=18
+2025-01-22 00:46:21,145 - INFO - [BA] Initial cost=1054808.40, Final cost=940389.06, Num iterations=17
+2025-01-22 00:46:21,276 - INFO - [BA] Initial cost=820839.75, Final cost=580583.89, Num iterations=17
+2025-01-22 00:46:21,416 - INFO - [BA] Initial cost=814913.71, Final cost=545613.80, Num iterations=17
+2025-01-22 00:46:21,608 - INFO - [BA] Initial cost=665262.77, Final cost=125239.51, Num iterations=24
+2025-01-22 00:46:21,738 - INFO - [BA] Initial cost=674925.13, Final cost=480229.57, Num iterations=18
+2025-01-22 00:46:21,854 - INFO - [BA] Initial cost=823802.91, Final cost=561442.96, Num iterations=16
+2025-01-22 00:46:21,968 - INFO - [BA] Initial cost=688753.95, Final cost=521072.15, Num iterations=18
+2025-01-22 00:46:22,092 - INFO - [BA] Initial cost=400914.96, Final cost=343825.77, Num iterations=17
+2025-01-22 00:46:22,225 - INFO - [BA] Initial cost=622169.20, Final cost=545229.73, Num iterations=17
+2025-01-22 00:46:22,358 - INFO - [BA] Initial cost=923900.00, Final cost=652854.08, Num iterations=16
+2025-01-22 00:46:22,504 - INFO - [BA] Initial cost=870696.79, Final cost=307189.73, Num iterations=17
+2025-01-22 00:46:22,680 - INFO - [BA] Initial cost=825328.43, Final cost=182473.01, Num iterations=18
+2025-01-22 00:46:22,814 - INFO - [BA] Initial cost=783353.57, Final cost=302182.76, Num iterations=17
+2025-01-22 00:46:22,943 - INFO - [BA] Initial cost=454160.35, Final cost=396169.57, Num iterations=17
+2025-01-22 00:46:23,077 - INFO - [BA] Initial cost=612524.36, Final cost=417341.61, Num iterations=16
+2025-01-22 00:46:23,202 - INFO - [BA] Initial cost=652082.75, Final cost=1302385.52, Num iterations=15
+2025-01-22 00:46:23,332 - INFO - [BA] Initial cost=511106.22, Final cost=369185.67, Num iterations=15
+2025-01-22 00:46:23,449 - INFO - [BA] Initial cost=418662.53, Final cost=297825.28, Num iterations=15
