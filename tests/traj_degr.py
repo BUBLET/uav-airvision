@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,34 +42,6 @@ def parse_trajectory_file(file_path):
     return np.array(positions), np.array(rotations)
 
 
-def smooth_positions_moving_average(positions, window_size=30):
-    """
-    Пример простого сглаживания скользящим средним (moving average) 
-    в каждом из x,y,z отдельно.
-    """
-    if window_size < 2:
-        return positions.copy()
-
-    smoothed = np.zeros_like(positions)
-    n = len(positions)
-
-    # Для каждого канала (x, y, z) делаем скользящее среднее
-    for dim in range(3):
-        # Извлекаем одну координату (x или y или z) всех кадров
-        coord_series = positions[:, dim]
-
-        # Можно воспользоваться np.convolve
-        # Kernel = [1/window_size] * window_size
-        kernel = np.ones(window_size) / window_size
-
-        # 'same' оставит тот же размер
-        # но крайние элементы будут смазаны
-        conv_result = np.convolve(coord_series, kernel, mode='same')
-
-        smoothed[:, dim] = conv_result
-    
-    return smoothed
-
 
 def main():
     # Пути к файлам
@@ -90,14 +59,11 @@ def main():
     gt_positions = gt_positions[:n]
     est_positions = est_positions[:n]
 
-    # Сглаженная версия est
-    smoothed_est = smooth_positions_moving_average(est_positions, window_size=5)
+ 
 
-    # Создаем figure с тремя строками и тремя столбцами (3x3=9 сабплотов)
-    fig, axes = plt.subplots(3, 3, figsize=(10, 8), sharex=True)
-    fig.suptitle("Top row: GT  |  Middle row: Estimated  |  Bottom row: Smoothed Estimated")
+    fig, axes = plt.subplots(2, 3, figsize=(10, 8), sharex=True)
+    fig.suptitle("Top row: GT  |  Middle row: Estimated ")
 
-    # --- Ground Truth (первая строка, row=0) ---
     # X
     axes[0, 0].plot(frames, gt_positions[:, 0], color='blue')
     axes[0, 0].set_title("GT X")
@@ -129,25 +95,9 @@ def main():
     axes[1, 2].set_title("Est Z")
     axes[1, 2].grid(True)
 
-    # --- Smoothed Estimated (третья строка, row=2) ---
-    # X
-    axes[2, 0].plot(frames, smoothed_est[:, 0], color='magenta')
-    axes[2, 0].set_title("S.Est X")
-    axes[2, 0].grid(True)
 
-    # Y
-    axes[2, 1].plot(frames, smoothed_est[:, 1], color='magenta')
-    axes[2, 1].set_title("S.Est Y")
-    axes[2, 1].grid(True)
-
-    # Z
-    axes[2, 2].plot(frames, smoothed_est[:, 2], color='magenta')
-    axes[2, 2].set_title("S.Est Z")
-    axes[2, 2].grid(True)
-
-    # Подписи на оси X у самой нижней строки
     for col in range(3):
-        axes[2, col].set_xlabel("Frame Index")
+        axes[1, col].set_xlabel("Frame Index")
 
     plt.tight_layout()
     plt.show()

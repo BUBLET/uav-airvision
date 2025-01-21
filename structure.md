@@ -11,8 +11,6 @@
 - **results/**
     - cam_traj_truth.txt
     - estimated_traj.txt
-- **scripts/**
-    - jpgToMp4.py
 - **src/**
     - config.py
     - main.py

@@ -65,6 +65,8 @@ def main():
     initialization_completed = False # Флаг инициализации
     reset_vis = False
     
+    lost_frames_count = 0
+    
     # Хранение мап поинтс, кейфрамес и poses
     map_points = []
     keyframes = []

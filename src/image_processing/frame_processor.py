@@ -322,9 +322,9 @@ class FrameProcessor:
             if R is None or t is None:
                 self.logger.warning("Failed to recover camera pose. Skipping frame.")
                 return None
-            t = t * config.INIT_SCALE
-            self.logger.info(f"Applied scale factor {config.INIT_SCALE:.3f} to translation. "
-                            f"New t={t.ravel()}")
+            # t = t * config.INIT_SCALE
+            # self.logger.info(f"Applied scale factor {config.INIT_SCALE:.3f} to translation. "
+            #                 f"New t={t.ravel()}")
             # Проверка угла триангуляции
             median_angle = self.odometry_calculator.check_triangulation_angle(
                 R, t, ref_keypoints, curr_keypoints, matches
@@ -350,6 +350,24 @@ class FrameProcessor:
                 map_points_array, inlier_matches = self.odometry_calculator.triangulate_points(
                     R, t, ref_keypoints, curr_keypoints, matches, mask_pose
                 )
+
+                pts3d = map_points_array
+
+                if pts3d.size > 0:
+                    mean_depth = np.mean(pts3d[:, 2])
+                    assumed_mean_depth = config.ASSUMED_MEAN_DEPTH_DURING_INIT
+                    scale = assumed_mean_depth / mean_depth
+                    self.logger.info(f"Calculated scale factor: {scale:.3f}")
+
+                    t = t * scale
+                    map_points_array = pts3d * scale
+
+                    initial_pose = np.hstack((R, t))
+                    poses[-1] = initial_pose
+                    last_pose = initial_pose
+                else:
+                    self.logger.warning("No 3d points triangulated")
+                
                 # Преобразуем в структуру
                 ref_frame_idx = frame_idx - 1
                 curr_frame_idx = frame_idx

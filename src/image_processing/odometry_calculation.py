@@ -7,6 +7,7 @@ import config
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+metrics_logger = logging.getLogger("metrics_logger")
 
 class MapPoint:
     _id_counter = 0
@@ -128,6 +129,8 @@ class OdometryCalculator:
         if E is None:
             self.logger.warning("Не удалось вычислить матрицу Essential.")
             return None
+        
+        E = E / np.linalg.norm(E)
 
         # Вычисляем ошибку переноса
         error = self.calculate_symmetric_transfer_error(E, src_pts, dst_pts)
@@ -162,6 +165,8 @@ class OdometryCalculator:
         H, mask = cv2.findHomography(src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=config.H_RANSAC_THRESHOLD)
         if H is None:
             return None
+        
+        H = H / np.linalg.norm(H)
 
         # Вычисляем симметричную ошибку переноса
         error = self.calculate_symmetric_transfer_error(H, src_pts, dst_pts, is_homography=True)
@@ -192,10 +197,33 @@ class OdometryCalculator:
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
 
-        # Восстанавливаем относительное положение камеры
-        _, R, t, mask_pose = cv2.recoverPose(E, src_pts, dst_pts, self.camera_matrix)
-        return R, t, mask_pose
+        retval, Rs, ts, normals = cv2.decomposeHomographyMat(H, self.camera_matrix)
+        self.logger.info(f"Найдено {len(Rs)} возможных решений для Homography.")
 
+        best_score = -np.inf
+        best_R = None
+        best_t = None
+        best_mask = None
+
+        # Используем эвристику, учитывающую количество точек перед камерой и ориентацию нормали
+        for R, t, normal in zip(Rs, ts, normals):
+            mask = self.check_points_in_front(R, t, src_pts, dst_pts)
+            num_inliers = np.sum(mask)
+
+            # Простая эвристика по нормали: поощряем нормали, направленные вперед (положительное Z)
+            normal_score = 1 if normal[2] > 0 else 0
+
+            # Комбинируем показатели; вес нормали можно настроить
+            score = num_inliers + 0.5 * normal_score
+
+            if score > best_score:
+                best_score = score
+                best_R = R
+                best_t = t
+                best_mask = mask
+
+        return best_R, best_t, best_mask
+    
     def decompose_homography(
         self,
         H: np.ndarray,
@@ -515,127 +543,120 @@ class OdometryCalculator:
         idx1, keypoints1, descriptors1, pose1 = keyframe1
         idx2, keypoints2, descriptors2, pose2 = keyframe2
 
-        # Проверяем количество совпадений
         if len(inlier_matches) < 8:
             self.logger.warning("Недостаточно совпадений для триангуляции новых map points.")
             return []
 
-        # Получаем соответствующие точки
+        # Извлекаем 2D-точки из совпадений
         src_pts = np.float32([keypoints1[m.queryIdx].pt for m in inlier_matches])
         dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in inlier_matches])
 
-        R1 = pose1[:, :3]
-        t1 = pose1[:, 3]
-        R2 = pose2[:, :3]
-        t2 = pose2[:, 3]
+        # Извлекаем матрицы вращения и векторы трансляции
+        R1, t1 = pose1[:, :3], pose1[:, 3].reshape(3, 1)
+        R2, t2 = pose2[:, :3], pose2[:, 3].reshape(3, 1)
 
-        # Проекционные матрицы
-        proj_matrix1 = self.camera_matrix @ np.hstack((R1, t1.reshape(3, 1)))
-        proj_matrix2 = self.camera_matrix @ np.hstack((R2, t2.reshape(3, 1)))
+        # Создаем проекционные матрицы для обоих кадров
+        proj_matrix1 = self.camera_matrix @ np.hstack((R1, t1))
+        proj_matrix2 = self.camera_matrix @ np.hstack((R2, t2))
 
-        # Триангулируем точки
+        # Триангулируем 3D-точки
         pts4D_hom = cv2.triangulatePoints(proj_matrix1, proj_matrix2, src_pts.T, dst_pts.T)
-        pts3D = (pts4D_hom[:3] / pts4D_hom[3]).T
+        pts3D_hom = pts4D_hom / pts4D_hom[3]  # Нормализация однородных координат
+        pts3D = pts3D_hom[:3].T  # Приводим к форме (N, 3)
 
-        # Преобразуем в map points
+        # Настраиваем порог ошибки пере-проекции
+        reprojection_error_threshold = 1.5
+
         new_map_points = []
-        for i in range(pts3D.shape[0]):
-            if pts3D[i][2] <= 0:
-                continue  # Пропустить точки за камерой
+        for i, point3D in enumerate(pts3D):
+            # Отбрасываем точки за камерой
+            if point3D[2] <= 0:
+                continue
 
-            mp = MapPoint(pts3D[i])
-            # Добавляем дескрипторы и наблюдения
+            # Пере-проецируем 3D-точку в оба кадра для оценки ошибки
+            point3D_hom = np.append(point3D, 1).reshape(4, 1)
+            proj_pt1_hom = proj_matrix1 @ point3D_hom
+            proj_pt2_hom = proj_matrix2 @ point3D_hom
+
+            proj_pt1 = (proj_pt1_hom[:2] / proj_pt1_hom[2]).flatten()
+            proj_pt2 = (proj_pt2_hom[:2] / proj_pt2_hom[2]).flatten()
+
+            # Вычисляем ошибки пере-проекции в обоих кадрах
+            error1 = np.linalg.norm(proj_pt1 - src_pts[i])
+            error2 = np.linalg.norm(proj_pt2 - dst_pts[i])
+
+            # Фильтруем точки с большой ошибкой пере-проекции
+            if error1 > reprojection_error_threshold or error2 > reprojection_error_threshold:
+                continue
+
+            # Создаем новую MapPoint и добавляем дескрипторы и наблюдения
+            mp = MapPoint(point3D)
             mp.descriptors.append(descriptors1[inlier_matches[i].queryIdx])
             mp.descriptors.append(descriptors2[inlier_matches[i].trainIdx])
             mp.observations.append((idx1, inlier_matches[i].queryIdx))
             mp.observations.append((idx2, inlier_matches[i].trainIdx))
             new_map_points.append(mp)
 
-        self.logger.info(f"Триангулировано {len(new_map_points)} новых точек карты.")
+        self.logger.info(f"Триангулировано {len(new_map_points)} новых точек карты после фильтрации.")
         return new_map_points
 
+
     def get_inliers_epipolar(self,
-                             keypoints1: List[cv2.KeyPoint],
-                             keypoints2: List[cv2.KeyPoint],
-                             matches: List[cv2.DMatch]) -> List[cv2.DMatch]:
+                            keypoints1: List[cv2.KeyPoint],
+                            keypoints2: List[cv2.KeyPoint],
+                            matches: List[cv2.DMatch],
+                            epipolar_threshold: float = 1.0) -> List[cv2.DMatch]:
         """
-        Находит инлайерные соответствия на основе эпиполярных ограничений.
+        Находит инлайерные соответствия на основе эпиполярных ограничений и эпиполярной ошибки.
 
         Параметры:
         - keypoints1 (list of cv2.KeyPoint): ключевые точки первого кадра.
         - keypoints2 (list of cv2.KeyPoint): ключевые точки второго кадра.
         - matches (list of cv2.DMatch): список соответствий.
+        - epipolar_threshold (float): порог эпиполярного расстояния для фильтрации.
 
         Возвращает:
         - inlier_matches (list of cv2.DMatch): список инлайерных соответствий.
         """
+        if not matches:
+            self.logger.warning("Нет соответствий для обработки.")
+            return []
+
         src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches])
 
+        # Вычисляем фундаментальную матрицу с помощью RANSAC
         F, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.FM_RANSAC)
 
-        inlier_matches = [m for i, m in enumerate(matches) if mask[i]]
+        if F is None or mask is None:
+            self.logger.warning("Не удалось найти фундаментальную матрицу или маску.")
+            return []
 
-        self.logger.info(f"Found {len(inlier_matches)} inlier matches out of {len(matches)} total matches.")
+        # Нормализация фундаментальной матрицы
+        F = F / np.linalg.norm(F)
+
+        # Фильтрация инлайеров на основе RANSAC
+        initial_inliers = [m for i, m in enumerate(matches) if mask[i]]
+
+        # Дополнительная фильтрация с использованием эпиполярной ошибки
+        inlier_matches = []
+        for match in initial_inliers:
+            pt1 = np.array(keypoints1[match.queryIdx].pt, dtype=np.float32).reshape(1, 2)
+            pt2 = np.array(keypoints2[match.trainIdx].pt, dtype=np.float32).reshape(1, 2)
+
+            # Вычисляем эпиполярные линии для обеих точек
+            line1 = cv2.computeCorrespondEpilines(pt2.reshape(-1,1,2), 2, F).reshape(-1,3)[0]
+            line2 = cv2.computeCorrespondEpilines(pt1.reshape(-1,1,2), 1, F).reshape(-1,3)[0]
+
+            # Эпиполярное расстояние для каждой точки
+            error1 = abs(line1[0]*pt1[0,0] + line1[1]*pt1[0,1] + line1[2]) / np.sqrt(line1[0]**2 + line1[1]**2)
+            error2 = abs(line2[0]*pt2[0,0] + line2[1]*pt2[0,1] + line2[2]) / np.sqrt(line2[0]**2 + line2[1]**2)
+
+            if (error1 + error2) < epipolar_threshold:
+                inlier_matches.append(match)
+
+        self.logger.info(f"Найдено {len(inlier_matches)} инлайерных соответствий из {len(matches)} исходных.")
         return inlier_matches
-
-    def triangulate_new_points(self,
-                               keyframe1: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
-                               keyframe2: Tuple[int, List[cv2.KeyPoint], np.ndarray, np.ndarray],
-                               inlier_matches: List[cv2.DMatch],
-                               map_points: List[MapPoint]) -> List[MapPoint]:
-        """
-        Триангулирует новые точки карты между двумя кейфреймами, если они еще не были триангулированы.
-
-        Параметры:
-        - keyframe1 (tuple): кортеж (индекс кадра, ключевые точки, дескрипторы, поза).
-        - keyframe2 (tuple): кортеж (индекс кадра, ключевые точки, дескрипторы, поза).
-        - inlier_matches (list of cv2.DMatch): список инлайерных соответствий.
-        - map_points (list of MapPoint): существующие точки карты.
-
-        Возвращает:
-        - new_map_points (list of MapPoint): список новых точек карты.
-        """
-        new_map_points = []
-        idx1, keypoints1, descriptors1, pose1 = keyframe1
-        idx2, keypoints2, descriptors2, pose2 = keyframe2
-
-        # Проекционные матрицы
-        proj_matrix1 = self.camera_matrix @ pose1
-        proj_matrix2 = self.camera_matrix @ pose2
-
-        for match in inlier_matches:
-            kp1_idx = match.queryIdx
-            kp2_idx = match.trainIdx
-
-            # Проверяем, были ли точки уже триангулированы
-            already_triangulated = False
-            for mp in map_points:
-                if (idx1, kp1_idx) in mp.observations or (idx2, kp2_idx) in mp.observations:
-                    already_triangulated = True
-                    break
-
-            if already_triangulated:
-                continue
-
-            # Координаты точек
-            pt1 = keypoints1[kp1_idx].pt
-            pt2 = keypoints2[kp2_idx].pt
-
-            # Триангуляция
-            pts4D_hom = cv2.triangulatePoints(
-                proj_matrix1, proj_matrix2, np.array([pt1]).T, np.array([pt2]).T)
-            pts3D = (pts4D_hom[:3] / pts4D_hom[3]).reshape(3)
-
-            # Создаем новую точку карты
-            mp = MapPoint(pts3D)
-            mp.descriptors.append(descriptors1[kp1_idx])
-            mp.descriptors.append(descriptors2[kp2_idx])
-            mp.add_observation(idx1, kp1_idx)
-            mp.add_observation(idx2, kp2_idx)
-            new_map_points.append(mp)
-
-        return new_map_points
 
     def clean_local_map(self, map_points: List[MapPoint], current_pose: np.ndarray) -> List[MapPoint]:
         """
@@ -670,24 +691,35 @@ class OdometryCalculator:
         - curr_descriptors (np.ndarray): дескрипторы текущего кадра.
         - frame_idx (int): индекс текущего кадра.
         """
-        # Сопоставляем дескрипторы точек карты с текущими дескрипторами
+        # Сбор дескрипторов для сопоставления
         map_descriptors = []
         map_indices = []
         for idx, mp in enumerate(map_points):
+            # Используем последний дескриптор для большей актуальности наблюдений
             if mp.descriptors:
-                map_descriptors.append(mp.descriptors[0])
+                map_descriptors.append(mp.descriptors[-1])
                 map_indices.append(idx)
 
         if not map_descriptors:
             return
 
         map_descriptors = np.array(map_descriptors, dtype=np.uint8)
-        matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
-        matches = matcher.match(map_descriptors, curr_descriptors)
 
-        # Обновляем наблюдения точек карты
-        for match in matches:
+        # Инициализируем BFMatcher и выполняем поиск K ближайших соседей
+        matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
+        knn_matches = matcher.knnMatch(map_descriptors, curr_descriptors, k=2)
+
+        # Применяем тест отношения расстояний для фильтрации надёжных совпадений
+        good_matches = []
+        ratio_thresh = 0.75  # Порог отношения (можно настроить)
+        for m, n in knn_matches:
+            if m.distance < ratio_thresh * n.distance:
+                good_matches.append(m)
+
+        # Обновляем наблюдения точек карты на основе отфильтрованных соответствий
+        for match in good_matches:
             mp_idx = map_indices[match.queryIdx]
             kp_idx = match.trainIdx
             map_points[mp_idx].add_observation(frame_idx, kp_idx)
             map_points[mp_idx].matched_times += 1
+

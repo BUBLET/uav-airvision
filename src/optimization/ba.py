@@ -77,11 +77,14 @@ class BundleAdjustment:
             self.fun,
             x0,
             jac_sparsity=A,
-            verbose=2,
+            verbose=1,
             x_scale='jac',
             ftol=config.BA_FTOL,
+            xtol=1e-2,
+            gtol=1e-2,
             max_nfev=config.BA_MAX_NFEV,
             method='trf',
+            loss='huber',
             args=(n_cameras, n_points, camera_indices, point_indices, points_2d)
         )
 
