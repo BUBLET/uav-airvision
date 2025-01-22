@@ -81,6 +81,7 @@ class OdometryCalculator:
         else:
             # Используем Essential Matrix
             F = np.linalg.inv(self.camera_matrix).T @ matrix @ np.linalg.inv(self.camera_matrix)
+
             lines1 = cv2.computeCorrespondEpilines(dst_pts.reshape(-1, 1, 2), 2, F).reshape(-1, 3)
             lines2 = cv2.computeCorrespondEpilines(src_pts.reshape(-1, 1, 2), 1, F).reshape(-1, 3)
 
@@ -130,10 +131,11 @@ class OdometryCalculator:
             self.logger.warning("Не удалось вычислить матрицу Essential.")
             return None
         
-        E = E / np.linalg.norm(E)
+        src_pts_inliers = src_pts[mask.ravel() == 1]
+        dst_pts_inliers = dst_pts[mask.ravel() == 1]
 
         # Вычисляем ошибку переноса
-        error = self.calculate_symmetric_transfer_error(E, src_pts, dst_pts)
+        error = self.calculate_symmetric_transfer_error(E, src_pts_inliers, dst_pts_inliers)
         return E, mask, error
 
     def calculate_homography_matrix(
@@ -165,65 +167,48 @@ class OdometryCalculator:
         H, mask = cv2.findHomography(src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=config.H_RANSAC_THRESHOLD)
         if H is None:
             return None
-        
-        H = H / np.linalg.norm(H)
+
 
         # Вычисляем симметричную ошибку переноса
         error = self.calculate_symmetric_transfer_error(H, src_pts, dst_pts, is_homography=True)
         return H, mask, error
 
     def decompose_essential(
-        self,
-        E: np.ndarray,
-        prev_keypoints: List[cv2.KeyPoint],
-        curr_keypoints: List[cv2.KeyPoint],
-        matches: List[cv2.DMatch]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+            self,
+            E: np.ndarray,
+            prev_keypoints: List[cv2.KeyPoint],
+            curr_keypoints: List[cv2.KeyPoint],
+            matches: List[cv2.DMatch]
+        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Декомпозирует матрицу Essential и восстанавливает относительное движение между двумя наборами точек.
-
-        Параметры:
-        - E (numpy.ndarray): матрица Essential.
-        - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
-        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
-        - matches (list of cv2.DMatch): список сопоставленных точек.
-
-        Возвращает:
-        - R (numpy.ndarray): матрица вращения (3x3).
-        - t (numpy.ndarray): вектор трансляции (3x1).
-        - mask_pose (numpy.ndarray): маска инлайеров, используемых для восстановления позы.
+        Использует матрицу Essential для восстановления относительного движения камеры с помощью recoverPose.
         """
-        # Получаем соответствующие точки
+        # Определяем соответствующие точки
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
 
-        retval, Rs, ts, normals = cv2.decomposeHomographyMat(H, self.camera_matrix)
-        self.logger.info(f"Найдено {len(Rs)} возможных решений для Homography.")
+        # Используем recoverPose для восстановления вращения и трансляции
+        _, R, t, mask_pose = cv2.recoverPose(E, src_pts, dst_pts, self.camera_matrix, mask=None)
+        self.logger.info(f"Восстановлены R: {R}, t: {t} с помощью recoverPose.")
 
-        best_score = -np.inf
-        best_R = None
-        best_t = None
-        best_mask = None
+        # Логируем маску инлайеров
+        self.logger.info(f"Маска инлайеров: {mask_pose.sum()} из {len(mask_pose)} точек.")
 
-        # Используем эвристику, учитывающую количество точек перед камерой и ориентацию нормали
-        for R, t, normal in zip(Rs, ts, normals):
-            mask = self.check_points_in_front(R, t, src_pts, dst_pts)
-            num_inliers = np.sum(mask)
+        # Вычисляем эпиполярные линии для симметричной ошибки переноса
+        F = np.linalg.inv(self.camera_matrix).T @ E @ np.linalg.inv(self.camera_matrix)  # Восстановление F
+        lines1 = cv2.computeCorrespondEpilines(dst_pts.reshape(-1, 1, 2), 2, F).reshape(-1, 3)
+        lines2 = cv2.computeCorrespondEpilines(src_pts.reshape(-1, 1, 2), 1, F).reshape(-1, 3)
 
-            # Простая эвристика по нормали: поощряем нормали, направленные вперед (положительное Z)
-            normal_score = 1 if normal[2] > 0 else 0
+        # Расчет ошибок для обеих сторон
+        error1 = np.abs(np.sum(src_pts * lines1[:, :2], axis=1) + lines1[:, 2]) / np.linalg.norm(lines1[:, :2], axis=1)
+        error2 = np.abs(np.sum(dst_pts * lines2[:, :2], axis=1) + lines2[:, 2]) / np.linalg.norm(lines2[:, :2], axis=1)
 
-            # Комбинируем показатели; вес нормали можно настроить
-            score = num_inliers + 0.5 * normal_score
+        # Возвращаем среднюю симметричную ошибку
+        error = np.mean(error1 + error2)
+        self.logger.info(f"Симметричная ошибка переноса для Essential: {error}")
 
-            if score > best_score:
-                best_score = score
-                best_R = R
-                best_t = t
-                best_mask = mask
+        return R, t, mask_pose
 
-        return best_R, best_t, best_mask
-    
     def decompose_homography(
         self,
         H: np.ndarray,
@@ -565,7 +550,7 @@ class OdometryCalculator:
         pts3D = pts3D_hom[:3].T  # Приводим к форме (N, 3)
 
         # Настраиваем порог ошибки пере-проекции
-        reprojection_error_threshold = 1.5
+        reprojection_error_threshold = 2
 
         new_map_points = []
         for i, point3D in enumerate(pts3D):
@@ -600,12 +585,11 @@ class OdometryCalculator:
         self.logger.info(f"Триангулировано {len(new_map_points)} новых точек карты после фильтрации.")
         return new_map_points
 
-
     def get_inliers_epipolar(self,
                             keypoints1: List[cv2.KeyPoint],
                             keypoints2: List[cv2.KeyPoint],
                             matches: List[cv2.DMatch],
-                            epipolar_threshold: float = 1.0) -> List[cv2.DMatch]:
+                            epipolar_threshold: float = 0.01) -> List[cv2.DMatch]:
         """
         Находит инлайерные соответствия на основе эпиполярных ограничений и эпиполярной ошибки.
 
@@ -633,7 +617,7 @@ class OdometryCalculator:
             return []
 
         # Нормализация фундаментальной матрицы
-        F = F / np.linalg.norm(F)
+        #F = F / np.linalg.norm(F)
 
         # Фильтрация инлайеров на основе RANSAC
         initial_inliers = [m for i, m in enumerate(matches) if mask[i]]

@@ -7,7 +7,7 @@ import config
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+logging.disable(logging.CRITICAL)
 def select_uniform_keypoints_by_grid(
         keypoints: List[cv2.KeyPoint],
         image_rows: int,
@@ -105,36 +105,3 @@ class FeatureExtractor:
         
         return filtered_keypoints, descriptors
 
-    def draw_keypoints(self, image: np.ndarray, keypoints: List[cv2.KeyPoint]) -> np.ndarray:
-        """
-        Отображает ключевые точки на изображении для визуализации.
-
-        Параметры:
-        - image (numpy.ndarray):
-        - keypoints (list of cv2.KeyPoint): Список ключевых точек для отображения.
-
-        Возвращает:
-        - image_with_keypoints (numpy.ndarray): Изображение с нанесенными ключевыми точками.
-
-        Исключения:
-        - ValueError: Если изображение некорректно.
-
-        """
-        if image is None or not hasattr(image, 'shape'):
-            raise ValueError("Изображение не может быть пустым и должно быть корректным numpy.ndarray.")
-
-        if image.size == 0:
-            raise ValueError("Изображение пустое.")
-
-        # Если изображение в градациях серого, преобразуем в BGR для отображения цветных ключевых точек
-        if len(image.shape) == 2:
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-
-        image_with_keypoints = cv2.drawKeypoints(
-            image,
-            keypoints,
-            None,
-            color=(0, 255, 0),
-            flags=cv2.DrawMatchesFlags_DEFAULT
-        )
-        return image_with_keypoints

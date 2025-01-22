@@ -6,6 +6,7 @@ import config
 
 logger = logging.getLogger(__name__)
 metrics_logger = logging.getLogger("metrics_logger")
+logging.disable(logging.CRITICAL)
 
 class BundleAdjustment:
     def __init__(self, camera_matrix):
@@ -77,11 +78,11 @@ class BundleAdjustment:
             self.fun,
             x0,
             jac_sparsity=A,
-            verbose=1,
+            verbose=0,
             x_scale='jac',
             ftol=config.BA_FTOL,
-            xtol=1e-2,
-            gtol=1e-2,
+            xtol=config.BA_XTOL,
+            gtol=config.BA_GTOL,
             max_nfev=config.BA_MAX_NFEV,
             method='trf',
             loss='huber',

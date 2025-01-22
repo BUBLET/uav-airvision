@@ -1,19 +1,21 @@
 import logging
 import numpy as np
 import cv2
+import config
 from optimization.ba import BundleAdjustment  # Импортируем BundleAdjustment
 
 logger = logging.getLogger(__name__)
+metrics_logger = logging.getLogger("metrics_logger")
 
 class FrameProcessor:
     def __init__(self,
                  feature_extractor,
                  feature_matcher,
                  odometry_calculator,
-                 translation_threshold=0.01,
-                 rotation_threshold=np.deg2rad(10),
-                 triangulation_threshold=np.deg2rad(0.5),
-                 bundle_adjustment_frames=2  # Количество кадров для оптимизации
+                 translation_threshold=config.TRANSLATION_THRESHOLD,
+                 rotation_threshold=config.ROTATION_THRESHOLD,
+                 triangulation_threshold=config.TRIANGULATION_THRESHOLD,
+                 bundle_adjustment_frames=config.BUNDLE_ADJUSTMENT_FRAMES  # Количество кадров для оптимизации
                  ):
         self.feature_extractor = feature_extractor
         self.feature_matcher = feature_matcher
@@ -168,13 +170,6 @@ class FrameProcessor:
             self.logger.warning("Failed to detect keypoints in the current frame. Skipping frame.")
             return None
         
-        # Отображение ключевых точек
-        img_with_keypoints = cv2.drawKeypoints(current_frame, curr_keypoints, None, color=(0, 255, 0))
-        cv2.imshow('Keypoints', img_with_keypoints)
-        cv2.waitKey(1)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            cv2.destroyAllWindows()
-            exit()
 
         if not init_completed:
             if ref_keypoints is None or ref_descriptors is None:
@@ -207,7 +202,7 @@ class FrameProcessor:
                 return None
 
             H_ratio = error_H / total_error
-            use_homography = H_ratio > 0.45
+            use_homography = H_ratio > config.HOMOGRAPHY_INLIER_RATIO
 
             if use_homography:
                 self.logger.info("Homography matrix chosen for decomposition.")

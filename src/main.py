@@ -31,6 +31,7 @@ from error_correction.error_correction import ErrorCorrector
 from optimization import BundleAdjustment
 from visualization import Visualizer3D
 
+logging.disable(logging.CRITICAL)
 
 def main():
 
@@ -58,7 +59,7 @@ def main():
     processor = FrameProcessor(feature_extractor, feature_matcher, odometry_calculator)
     
     # Инициализация визуализатора
-    visualizer = Visualizer3D()
+    #visualizer = Visualizer3D()
     
     # Инициализируем переменные 
     frame_idx = 1 # Индекс текущего кадра
@@ -147,31 +148,31 @@ def main():
 
         # Визуализация
         
-        trajectory = [pose[:3, 3] for pose in poses]  # Извлекаем центры камер
-        map_points_coordinates = [mp.coordinates for mp in map_points if mp.coordinates[2] > 0]
+    #     trajectory = [pose[:3, 3] for pose in poses]  # Извлекаем центры камер
+    #     map_points_coordinates = [mp.coordinates for mp in map_points if mp.coordinates[2] > 0]
 
-        if len(trajectory) > 0:
-            logger.info(f"Trajectory length: {len(trajectory)}, First point: {trajectory[0]}")
-        else:
-            logger.warning("Trajectory is empty.")
+    #     if len(trajectory) > 0:
+    #         logger.info(f"Trajectory length: {len(trajectory)}, First point: {trajectory[0]}")
+    #     else:
+    #         logger.warning("Trajectory is empty.")
 
-        if len(map_points_coordinates) > 0:
-            logger.info(f"Map points count: {len(map_points_coordinates)}, First point: {map_points_coordinates[0]}")
-        else:
-            logger.warning("Map points are empty.")
+    #     if len(map_points_coordinates) > 0:
+    #         logger.info(f"Map points count: {len(map_points_coordinates)}, First point: {map_points_coordinates[0]}")
+    #     else:
+    #         logger.warning("Map points are empty.")
 
-        visualizer.update_trajectory(trajectory)
-        visualizer.update_map_points(map_points_coordinates)
-        visualizer.render()
+    #     visualizer.update_trajectory(trajectory)
+    #     visualizer.update_map_points(map_points_coordinates)
+    #     visualizer.render()
 
-        if not reset_vis:
-            visualizer.vis.reset_view_point(True)
-            reset_vis = True
+    #     if not reset_vis:
+    #         visualizer.vis.reset_view_point(True)
+    #         reset_vis = True
 
-    # Освобождаем ресурсы
-    visualizer.close()
-    cap.release()
-    cv2.destroyAllWindows()
+    # # Освобождаем ресурсы
+    # visualizer.close()
+    # cap.release()
+    # cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
