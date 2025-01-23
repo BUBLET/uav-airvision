@@ -617,7 +617,7 @@ class OdometryCalculator:
             return []
 
         # Нормализация фундаментальной матрицы
-        #F = F / np.linalg.norm(F)
+        F = F / np.linalg.norm(F)
 
         # Фильтрация инлайеров на основе RANSAC
         initial_inliers = [m for i, m in enumerate(matches) if mask[i]]

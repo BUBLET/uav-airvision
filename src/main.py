@@ -31,7 +31,6 @@ from error_correction.error_correction import ErrorCorrector
 from optimization import BundleAdjustment
 from visualization import Visualizer3D
 
-logging.disable(logging.CRITICAL)
 
 def main():
 

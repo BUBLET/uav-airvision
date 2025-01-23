@@ -7,7 +7,7 @@ import config
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logging.disable(logging.CRITICAL)
+
 def select_uniform_keypoints_by_grid(
         keypoints: List[cv2.KeyPoint],
         image_rows: int,

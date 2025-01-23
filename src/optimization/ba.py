@@ -6,7 +6,6 @@ import config
 
 logger = logging.getLogger(__name__)
 metrics_logger = logging.getLogger("metrics_logger")
-logging.disable(logging.CRITICAL)
 
 class BundleAdjustment:
     def __init__(self, camera_matrix):

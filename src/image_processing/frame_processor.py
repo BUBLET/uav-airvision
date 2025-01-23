@@ -7,6 +7,7 @@ from optimization.ba import BundleAdjustment  # Импортируем BundleAdj
 logger = logging.getLogger(__name__)
 metrics_logger = logging.getLogger("metrics_logger")
 
+
 class FrameProcessor:
     def __init__(self,
                  feature_extractor,

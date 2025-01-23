@@ -35,13 +35,6 @@ def update_config(params):
     with open(CONFIG_PATH, "w") as file:
         file.writelines(config_lines)
 
-# Нормализация траектории
-def normalize_trajectory(trajectory):
-    trajectory -= trajectory[0]  # Центрирование относительно начала координат
-    scale = np.linalg.norm(trajectory, axis=1).max()  # Нормализация масштаба
-    trajectory /= scale
-    return trajectory
-
 # Вычисление сходства с использованием кросс-корреляции
 def compute_similarity(true_trajectory, output_trajectory):
     correlation = 0
