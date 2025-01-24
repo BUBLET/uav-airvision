@@ -74,15 +74,14 @@ def main():
 
     # Находим кей поинтс и дескрипторы для опорного кадра
     ref_keypoints, ref_descriptors = feature_extractor.extract_features(reference_frame)
-    if len(ref_keypoints) == 0:
+    
+    if not ref_keypoints:
         logger.error("no keypoints")
         return
     
     # Создаем первый ключевой кадр
     initial_translation = np.zeros((3, 1), dtype=np.float32)  # [0,0,0]
-    initial_rotation = np.array([[1.0, 0.0, 0.0],
-                                [0.0, 1.0, 0.0],
-                                [0.0, 0.0, 1.0]], dtype=np.float32)
+    initial_rotation = np.eye(3, dtype=np.float32)
     initial_pose = np.hstack((initial_rotation, initial_translation))
     keyframes.append((frame_idx, ref_keypoints, ref_descriptors, initial_pose))
     poses.append(initial_pose)
@@ -135,16 +134,12 @@ def main():
         else:
             lost_frames_count = 0
             ref_keypoints, ref_descriptors, last_pose, map_points, initialization_completed = result
+            
             # Запись траектории
-            x, y, z = last_pose[0, 3], last_pose[1, 3], last_pose[2, 3]
-            fout_line = f"{x} {y} {z} "
-            R = last_pose[:, :3]
-            for i in range(3):
-                for j in range(3):
-                    fout_line += f"{R[j, i]} "
-            fout_line += "\n"
+            x, y, z = last_pose[:3, 3]
+            R = last_pose[:3, :3].flatten()
+            fout_line = f"{x} {y} {z} " + " ".join(map(str, R)) + "\n"
             traj_file.write(fout_line)
-
         # Визуализация
         
     #     trajectory = [pose[:3, 3] for pose in poses]  # Извлекаем центры камер

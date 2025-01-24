@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from typing import List, Tuple, Optional
 import logging
-import config
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -215,46 +214,69 @@ class OdometryCalculator:
         prev_keypoints: List[cv2.KeyPoint],
         curr_keypoints: List[cv2.KeyPoint],
         matches: List[cv2.DMatch]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
         """
         Декомпозирует матрицу Homography и выбирает лучшее решение на основе числа точек перед камерой.
 
-        Параметры:
-        - H (numpy.ndarray): матрица Homography.
-        - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
-        - curr_keypoints (list of cv2.KeyPoint): ключевые точки текущего кадра.
-        - matches (list of cv2.DMatch): список сопоставленных точек.
-
         Возвращает:
-        - best_R (numpy.ndarray): лучшая матрица вращения.
-        - best_t (numpy.ndarray): лучший вектор трансляции.
-        - best_mask (numpy.ndarray): маска инлайеров для лучшего решения.
+        - best_R (numpy.ndarray): Лучшая матрица вращения.
+        - best_t (numpy.ndarray): Лучший вектор трансляции.
+        - best_mask (numpy.ndarray): Маска инлайеров для лучшего решения.
+        - best_num_inliers (int): Количество инлайеров для лучшего решения.
         """
-        # Декомпозируем матрицу Homography
-        src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
-        dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
+        if H is None or H.shape != (3, 3):
+            self.logger.warning("Некорректная матрица Homography.")
+            return None, None, None, 0
 
-        # Получаем возможные решения
+        if len(matches) < 4:
+            self.logger.warning("Недостаточно совпадений для декомпозиции Homography.")
+            return None, None, None, 0
+
+        # Извлекаем соответствующие точки
+        src_pts = np.array([prev_keypoints[m.queryIdx].pt for m in matches], dtype=np.float32)
+        dst_pts = np.array([curr_keypoints[m.trainIdx].pt for m in matches], dtype=np.float32)
+
+        # Декомпозируем матрицу Homography
         retval, Rs, ts, normals = cv2.decomposeHomographyMat(H, self.camera_matrix)
         self.logger.info(f"Найдено {len(Rs)} возможных решений для Homography.")
 
-        # Выбираем лучшее решение (например, точки перед камерой)
+        if retval == 0:
+            self.logger.warning("Не удалось декомпозировать Homography матрицу.")
+            return None, None, None, 0
+
+        camera_inv = np.linalg.inv(self.camera_matrix)
+        F = camera_inv.T @ H @ camera_inv  # Фундаментальная матрица
+
         best_num_inliers = -1
         best_R = None
         best_t = None
         best_mask = None
 
-        for R, t, normal in zip(Rs, ts, normals):
-            # Проверяем количество точек перед камерой
-            mask = self.check_points_in_front(R, t, src_pts, dst_pts)
-            num_inliers = np.sum(mask)
+        for i, (R, t, normal) in enumerate(zip(Rs, ts, normals)):
+            # Триангулируем точки
+            proj_matrix1 = self.camera_matrix @ np.hstack((np.eye(3), np.zeros((3, 1))))
+            proj_matrix2 = self.camera_matrix @ np.hstack((R, t))
+
+            pts4D_hom = cv2.triangulatePoints(proj_matrix1, proj_matrix2, src_pts.T, dst_pts.T)
+            pts3D = (pts4D_hom[:3] / pts4D_hom[3]).T  # N x 3
+
+            # Проверяем глубину точек
+            depths = pts3D[:, 2]
+            mask_depth = depths > 0
+            num_inliers = np.sum(mask_depth)
+
             if num_inliers > best_num_inliers:
                 best_num_inliers = num_inliers
                 best_R = R
                 best_t = t
-                best_mask = mask
+                best_mask = mask_depth
 
-        return best_R, best_t, best_mask
+        if best_num_inliers == -1:
+            self.logger.warning("Не удалось найти решение с положительной глубиной точек.")
+            return None, None, None, 0
+
+        self.logger.info(f"Лучшее решение: {best_num_inliers} инлайеров.")
+        return best_R, best_t, best_mask, best_num_inliers
 
     def check_points_in_front(self, R, t, src_pts, dst_pts) -> np.ndarray:
         """
@@ -277,8 +299,7 @@ class OdometryCalculator:
         pts3D = pts4D_hom[:3] / pts4D_hom[3]
 
         # Проверяем, что точки находятся перед камерой
-        depths = pts3D[2]
-        mask = depths > 0
+        mask = pts3D[:, 2] > 0
         return mask
 
     def check_triangulation_angle(
@@ -302,31 +323,56 @@ class OdometryCalculator:
         Возвращает:
         - median_angle (float): медианный угол триангуляции в радианах.
         """
-        # Получаем соответствующие точки
+        # Извлекаем соответствующие точки
         src_pts = np.float32([prev_keypoints[m.queryIdx].pt for m in matches])
         dst_pts = np.float32([curr_keypoints[m.trainIdx].pt for m in matches])
 
-        # Триангулируем точки
+        # Создаём проекционные матрицы для двух камер
         proj_matrix1 = self.camera_matrix @ np.hstack((np.eye(3), np.zeros((3, 1))))
         proj_matrix2 = self.camera_matrix @ np.hstack((R, t))
 
-        pts4D_hom = cv2.triangulatePoints(proj_matrix1, proj_matrix2, src_pts.T, dst_pts.T)
-        pts3D = pts4D_hom[:3] / pts4D_hom[3]
+        # Триангулируем точки
+        pts4D_hom = cv2.triangulatePoints(proj_matrix1, proj_matrix2, src_pts.T, dst_pts.T)  # 4xN
+        pts3D = (pts4D_hom[:3] / pts4D_hom[3]).T  # N x 3
 
-        # Вычисляем базис
+        # Вектор трансляции (базис камеры)
         baseline = t.flatten()
         baseline_norm = np.linalg.norm(baseline)
 
-        # Вычисляем углы между лучами и базисом
-        angles = []
-        for i in range(pts3D.shape[1]):
-            point = pts3D[:, i]
-            ray = point  # ray = point - np.zeros(3)
-            cos_angle = np.dot(ray, baseline) / (np.linalg.norm(ray) * baseline_norm)
-            angle = np.arccos(np.clip(cos_angle, -1.0, 1.0))
-            angles.append(angle)
+        if baseline_norm == 0:
+            self.logger.warning("Нулевой вектор трансляции. Невозможно вычислить углы.")
+            return 0.0
 
+        # Векторы лучей из центра камеры в точки
+        rays = pts3D  # Предполагается, что камера находится в начале координат
+
+        # Нормы векторов лучей
+        rays_norm = np.linalg.norm(rays, axis=1)
+        
+        # Избегаем деления на ноль
+        valid_norm = rays_norm > 0
+        if not np.all(valid_norm):
+            self.logger.warning(f"Найдено {np.sum(~valid_norm)} точек с нулевой длиной луча. Эти точки будут игнорироваться.")
+            rays = rays[valid_norm]
+            rays_norm = rays_norm[valid_norm]
+
+        # Скалярные произведения между лучами и базисом камеры
+        dot_products = np.dot(rays, baseline)
+
+        # Вычисление косинусов углов
+        cos_angles = dot_products / (rays_norm * baseline_norm)
+
+        # Обрезка значений для безопасности
+        cos_angles = np.clip(cos_angles, -1.0, 1.0)
+
+        # Вычисление углов в радианах
+        angles = np.arccos(cos_angles)
+
+        # Вычисление медианного угла
         median_angle = np.median(angles)
+
+        self.logger.debug(f"Медианный угол триангуляции: {median_angle} радиан ({np.degrees(median_angle)} градусов)")
+
         return median_angle
 
     def triangulate_points(
@@ -380,7 +426,7 @@ class OdometryCalculator:
     ) -> List[MapPoint]:
         """
         Преобразует триангулированные 3D точки в объекты MapPoint.
-
+    
         Параметры:
         - pts3D (np.ndarray): массив триангулированных 3D точек.
         - prev_keypoints (list of cv2.KeyPoint): ключевые точки предыдущего кадра.
@@ -390,27 +436,44 @@ class OdometryCalculator:
         - curr_descriptors (np.ndarray): дескрипторы текущего кадра.
         - prev_frame_idx (int): индекс предыдущего кадра.
         - curr_frame_idx (int): индекс текущего кадра.
-
+    
         Возвращает:
         - map_points (list of MapPoint): список созданных точек карты.
         """
-        map_points = []
         assert len(pts3D) == len(inlier_matches), "Количество 3D-точек не совпадает с количеством соответствий"
-        for i in range(len(pts3D)):
-            if pts3D[i][2] <= 0:
-                continue  # Пропустить эту точку
-            mp = MapPoint(pts3D[i])
-            # Сохраняем дескрипторы из предыдущего и текущего кадров
-            descriptor_prev = prev_descriptors[inlier_matches[i].queryIdx]
-            descriptor_curr = curr_descriptors[inlier_matches[i].trainIdx]
-            mp.descriptors.extend([descriptor_prev, descriptor_curr])
-            # Сохраняем наблюдения
+        
+        valid_mask = pts3D[:, 2] > 0
+        pts3D_valid = pts3D[valid_mask]
+        inlier_matches_valid = [m for m, valid in zip(inlier_matches, valid_mask) if valid]
+        
+        if len(pts3D_valid) == 0:
+            self.logger.warning("Нет 3D-точек с положительной глубиной после фильтрации.")
+            return []
+        
+        query_idxs = [m.queryIdx for m in inlier_matches_valid]
+        train_idxs = [m.trainIdx for m in inlier_matches_valid]
+        
+        descriptors_prev = prev_descriptors[query_idxs]
+        descriptors_curr = curr_descriptors[train_idxs]
+        
+        map_points = [
+            MapPoint(pt) for pt in pts3D_valid
+        ]
+        
+        for mp, desc_prev, desc_curr, q_idx, t_idx in zip(
+            map_points,
+            descriptors_prev,
+            descriptors_curr,
+            query_idxs,
+            train_idxs
+        ):
+            mp.descriptors.extend([desc_prev, desc_curr])
             mp.observations.extend([
-                (prev_frame_idx, inlier_matches[i].queryIdx),
-                (curr_frame_idx, inlier_matches[i].trainIdx)
+                (prev_frame_idx, q_idx),
+                (curr_frame_idx, t_idx)
             ])
-            map_points.append(mp)
-            self.logger.debug(f"Добавлена новая точка карты {i}: {mp.coordinates}")
+            self.logger.debug(f"Добавлена новая точка карты: {mp.coordinates}")
+        
         self.logger.info(f"Всего добавлено {len(map_points)} новых точек карты.")
         return map_points
 
@@ -497,7 +560,7 @@ class OdometryCalculator:
 
                 distance = cv2.norm(mp_descriptor, kp_descriptor, cv2.NORM_HAMMING)
 
-                if distance < 100:
+                if distance < config.DISTANCE_THRESHOLD:
                     matched_map_points.append(mp)
                     matched_keypoint_indices.append(keypoint_idx)
 
@@ -528,58 +591,79 @@ class OdometryCalculator:
         idx1, keypoints1, descriptors1, pose1 = keyframe1
         idx2, keypoints2, descriptors2, pose2 = keyframe2
 
-        if len(inlier_matches) < 8:
+        num_matches = len(inlier_matches)
+        if num_matches < 8:
             self.logger.warning("Недостаточно совпадений для триангуляции новых map points.")
             return []
 
         # Извлекаем 2D-точки из совпадений
-        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in inlier_matches])
-        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in inlier_matches])
+        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in inlier_matches]).T  # 2xN
+        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in inlier_matches]).T  # 2xN
 
-        # Извлекаем матрицы вращения и векторы трансляции
+        # Извлекаем матрицы 
         R1, t1 = pose1[:, :3], pose1[:, 3].reshape(3, 1)
         R2, t2 = pose2[:, :3], pose2[:, 3].reshape(3, 1)
 
         # Создаем проекционные матрицы для обоих кадров
-        proj_matrix1 = self.camera_matrix @ np.hstack((R1, t1))
-        proj_matrix2 = self.camera_matrix @ np.hstack((R2, t2))
+        proj_matrix1 = self.camera_matrix @ np.hstack((R1, t1))  # 3x4
+        proj_matrix2 = self.camera_matrix @ np.hstack((R2, t2))  # 3x4
 
         # Триангулируем 3D-точки
-        pts4D_hom = cv2.triangulatePoints(proj_matrix1, proj_matrix2, src_pts.T, dst_pts.T)
+        pts4D_hom = cv2.triangulatePoints(proj_matrix1, proj_matrix2, src_pts, dst_pts)  # 4xN
         pts3D_hom = pts4D_hom / pts4D_hom[3]  # Нормализация однородных координат
-        pts3D = pts3D_hom[:3].T  # Приводим к форме (N, 3)
+        pts3D = pts3D_hom[:3].T  # N x 3
 
-        # Настраиваем порог ошибки пере-проекции
-        reprojection_error_threshold = 2
+        # Настраиваем порог ошибки 
+        reprojection_error_threshold = config.REPROJECTION_THRESHOLD
 
+        # Предварительная
+        mask_positive_z = pts3D[:, 2] > 0
+        pts3D = pts3D[mask_positive_z]
+        src_pts_filtered = src_pts[:, mask_positive_z].T  # N_filtered x 2
+        dst_pts_filtered = dst_pts[:, mask_positive_z].T  # N_filtered x 2
+        inlier_matches_filtered = [m for m, valid in zip(inlier_matches, mask_positive_z) if valid]
+
+        if len(pts3D) == 0:
+            self.logger.warning("Нет точек с положительной глубиной после фильтрации.")
+            return []
+
+        # Преобразование вращательных матриц в векторы поворота
+        rvec1, _ = cv2.Rodrigues(R1)
+        tvec1 = t1
+
+        rvec2, _ = cv2.Rodrigues(R2)
+        tvec2 = t2
+
+        # Перепроецируем все точки в оба кадра
+        proj_pts1, _ = cv2.projectPoints(pts3D, rvec1, tvec1, self.camera_matrix, None)  # N x 1 x 2
+        proj_pts1 = proj_pts1.reshape(-1, 2)  # N x 2
+
+        proj_pts2, _ = cv2.projectPoints(pts3D, rvec2, tvec2, self.camera_matrix, None)  # N x 1 x 2
+        proj_pts2 = proj_pts2.reshape(-1, 2)  # N x 2
+
+        # Вычисляем ошибки перепроекции
+        errors1 = np.linalg.norm(proj_pts1 - src_pts_filtered, axis=1)
+        errors2 = np.linalg.norm(proj_pts2 - dst_pts_filtered, axis=1)
+
+        # Фильтруем точки по порогу ошибки
+        valid_mask = (errors1 <= reprojection_error_threshold) & (errors2 <= reprojection_error_threshold)
+        pts3D_valid = pts3D[valid_mask]
+        src_pts_valid = src_pts_filtered[valid_mask]
+        dst_pts_valid = dst_pts_filtered[valid_mask]
+        inlier_matches_valid = [m for m, valid in zip(inlier_matches_filtered, valid_mask) if valid]
+
+        if len(pts3D_valid) == 0:
+            self.logger.warning("Нет точек после фильтрации по ошибке пере-проекции.")
+            return []
+
+        # Создаём MapPoint для валидных точек
         new_map_points = []
-        for i, point3D in enumerate(pts3D):
-            # Отбрасываем точки за камерой
-            if point3D[2] <= 0:
-                continue
-
-            # Пере-проецируем 3D-точку в оба кадра для оценки ошибки
-            point3D_hom = np.append(point3D, 1).reshape(4, 1)
-            proj_pt1_hom = proj_matrix1 @ point3D_hom
-            proj_pt2_hom = proj_matrix2 @ point3D_hom
-
-            proj_pt1 = (proj_pt1_hom[:2] / proj_pt1_hom[2]).flatten()
-            proj_pt2 = (proj_pt2_hom[:2] / proj_pt2_hom[2]).flatten()
-
-            # Вычисляем ошибки пере-проекции в обоих кадрах
-            error1 = np.linalg.norm(proj_pt1 - src_pts[i])
-            error2 = np.linalg.norm(proj_pt2 - dst_pts[i])
-
-            # Фильтруем точки с большой ошибкой пере-проекции
-            if error1 > reprojection_error_threshold or error2 > reprojection_error_threshold:
-                continue
-
-            # Создаем новую MapPoint и добавляем дескрипторы и наблюдения
+        for i, point3D in enumerate(pts3D_valid):
             mp = MapPoint(point3D)
-            mp.descriptors.append(descriptors1[inlier_matches[i].queryIdx])
-            mp.descriptors.append(descriptors2[inlier_matches[i].trainIdx])
-            mp.observations.append((idx1, inlier_matches[i].queryIdx))
-            mp.observations.append((idx2, inlier_matches[i].trainIdx))
+            mp.descriptors.append(descriptors1[inlier_matches_valid[i].queryIdx])
+            mp.descriptors.append(descriptors2[inlier_matches_valid[i].trainIdx])
+            mp.observations.append((idx1, inlier_matches_valid[i].queryIdx))
+            mp.observations.append((idx2, inlier_matches_valid[i].trainIdx))
             new_map_points.append(mp)
 
         self.logger.info(f"Триангулировано {len(new_map_points)} новых точек карты после фильтрации.")
@@ -610,34 +694,14 @@ class OdometryCalculator:
         dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches])
 
         # Вычисляем фундаментальную матрицу с помощью RANSAC
-        F, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.FM_RANSAC)
+        F, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.FM_RANSAC, ransacReprojThreshold=epipolar_threshold, confidence=0.99)
 
         if F is None or mask is None:
             self.logger.warning("Не удалось найти фундаментальную матрицу или маску.")
             return []
 
-        # Нормализация фундаментальной матрицы
-        F = F / np.linalg.norm(F)
-
         # Фильтрация инлайеров на основе RANSAC
-        initial_inliers = [m for i, m in enumerate(matches) if mask[i]]
-
-        # Дополнительная фильтрация с использованием эпиполярной ошибки
-        inlier_matches = []
-        for match in initial_inliers:
-            pt1 = np.array(keypoints1[match.queryIdx].pt, dtype=np.float32).reshape(1, 2)
-            pt2 = np.array(keypoints2[match.trainIdx].pt, dtype=np.float32).reshape(1, 2)
-
-            # Вычисляем эпиполярные линии для обеих точек
-            line1 = cv2.computeCorrespondEpilines(pt2.reshape(-1,1,2), 2, F).reshape(-1,3)[0]
-            line2 = cv2.computeCorrespondEpilines(pt1.reshape(-1,1,2), 1, F).reshape(-1,3)[0]
-
-            # Эпиполярное расстояние для каждой точки
-            error1 = abs(line1[0]*pt1[0,0] + line1[1]*pt1[0,1] + line1[2]) / np.sqrt(line1[0]**2 + line1[1]**2)
-            error2 = abs(line2[0]*pt2[0,0] + line2[1]*pt2[0,1] + line2[2]) / np.sqrt(line2[0]**2 + line2[1]**2)
-
-            if (error1 + error2) < epipolar_threshold:
-                inlier_matches.append(match)
+        inlier_matches = [m for i, m in enumerate(matches) if mask[i]]
 
         self.logger.info(f"Найдено {len(inlier_matches)} инлайерных соответствий из {len(matches)} исходных.")
         return inlier_matches
@@ -676,14 +740,9 @@ class OdometryCalculator:
         - frame_idx (int): индекс текущего кадра.
         """
         # Сбор дескрипторов для сопоставления
-        map_descriptors = []
-        map_indices = []
-        for idx, mp in enumerate(map_points):
-            # Используем последний дескриптор для большей актуальности наблюдений
-            if mp.descriptors:
-                map_descriptors.append(mp.descriptors[-1])
-                map_indices.append(idx)
-
+        map_descriptors = [mp.descriptors[-1] for mp in map_points if mp.descriptors]
+        map_indices = [idx for idx, mp in enumerate(map_points) if mp.descriptors]
+        
         if not map_descriptors:
             return
 
@@ -694,11 +753,7 @@ class OdometryCalculator:
         knn_matches = matcher.knnMatch(map_descriptors, curr_descriptors, k=2)
 
         # Применяем тест отношения расстояний для фильтрации надёжных совпадений
-        good_matches = []
-        ratio_thresh = 0.75  # Порог отношения (можно настроить)
-        for m, n in knn_matches:
-            if m.distance < ratio_thresh * n.distance:
-                good_matches.append(m)
+        good_matches = [m for m, n in knn_matches if m.distance < config.RATIO_THRESH * n.distance]
 
         # Обновляем наблюдения точек карты на основе отфильтрованных соответствий
         for match in good_matches:

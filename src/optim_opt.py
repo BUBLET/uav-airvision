@@ -1,7 +1,7 @@
 import optuna
 import subprocess
 import numpy as np
-from scipy.signal import correlate
+from dtaidistance import dtw
 
 # Пути
 CONFIG_PATH = "./src/config.py"
@@ -37,11 +37,10 @@ def update_config(params):
 
 # Вычисление сходства с использованием кросс-корреляции
 def compute_similarity(true_trajectory, output_trajectory):
-    correlation = 0
-    for i in range(true_trajectory.shape[1]):  # Сравнение по каждой оси
-        corr = correlate(true_trajectory[:, i], output_trajectory[:, i], mode='valid')
-        correlation += np.max(corr)  # Берём максимальное значение корреляции
-    return correlation
+    distance = 0
+    for i in range(true_trajectory.shape[1]):  # По каждой оси
+        distance += dtw.distance(true_trajectory[:, i], output_trajectory[:, i])
+    return distance  # Чем меньше, тем лучше
 
 # Нормализация траектории (только координаты)
 def normalize_trajectory(trajectory):
@@ -73,7 +72,7 @@ def evaluate_config(params):
 
         # Вычисление корреляции
         similarity = compute_similarity(true_trajectory, output_trajectory)
-        return -similarity  # Оптимизация должна минимизировать значение
+        return similarity  # Оптимизация должна минимизировать значение
 
     except subprocess.CalledProcessError:
         # Если subprocess завершился с ошибкой, возвращаем большой штраф
@@ -87,29 +86,35 @@ def evaluate_config(params):
 # Оптимизация
 def objective(trial):
     params = {
-        "LOWE_RATIO": trial.suggest_float("LOWE_RATIO", 0.5, 0.9),
-        "E_RANSAC_THRESHOLD": trial.suggest_float("E_RANSAC_THRESHOLD", 0.05, 0.5),
-        "TRIANGULATION_THRESHOLD_DEG": trial.suggest_float("TRIANGULATION_THRESHOLD_DEG", 0.5, 2.0),
-        "ROTATION_THRESHOLD_DEG": trial.suggest_float("ROTATION_THRESHOLD_DEG", 0.5, 2.0),
-        "TRANSLATION_THRESHOLD": trial.suggest_float("TRANSLATION_THRESHOLD", 0.05, 1.0),
-        "EPIPOLAR_THRESHOLD": trial.suggest_float("EPIPOLAR_THRESHOLD", 0.01, 1),
-        "FORCE_KEYFRAME_INTERVAL": trial.suggest_int("FORCE_KEYFRAME_INTERVAL", 1, 15),
-        "KEYFRAME_BA_INTERVAL": trial.suggest_int("KEYFRAME_BA_INTERVAL", 1, 5),
-        "MIN_OBSERVATIONS": trial.suggest_int("MIN_OBSERVATIONS", 1, 4),
-        "BUNDLE_ADJUSTMENT_FRAMES": trial.suggest_int("BUNDLE_ADJUSTMENT_FRAMES", 3, 10),
-        "MAX_REPROJ_ERROR": trial.suggest_float("MAX_REPROJ_ERROR", 50, 150),
-        "MAP_CLEAN_MAX_DISTANCE": trial.suggest_float("MAP_CLEAN_MAX_DISTANCE", 10, 200),
-        "KPTS_UNIFORM_SELECTION_GRID_SIZE": trial.suggest_int("KPTS_UNIFORM_SELECTION_GRID_SIZE", 8, 32),
-        "MAX_PTS_PER_GRID": trial.suggest_int("MAX_PTS_PER_GRID", 4, 16),
-        "BA_FTOL": trial.suggest_float("BA_FTOL", 0.0001, 0.01),
-        "BA_XTOL": trial.suggest_float("BA_XTOL", 0.0001, 0.01),
-        "BA_GTOL": trial.suggest_float("BA_GTOL", 0.0001, 0.01)
+        "LOWE_RATIO": trial.suggest_float("LOWE_RATIO", 0.4, 0.95),
+        "TRANSLATION_THRESHOLD": trial.suggest_float("TRANSLATION_THRESHOLD", 0.01, 2.0),
+        "ROTATION_THRESHOLD_DEG": trial.suggest_float("ROTATION_THRESHOLD_DEG", 0.1, 5.0),
+        "TRIANGULATION_THRESHOLD_DEG": trial.suggest_float("TRIANGULATION_THRESHOLD_DEG", 0.1, 5.0),
+        "BUNDLE_ADJUSTMENT_FRAMES": trial.suggest_int("BUNDLE_ADJUSTMENT_FRAMES", 2, 15),
+        "FORCE_KEYFRAME_INTERVAL": trial.suggest_int("FORCE_KEYFRAME_INTERVAL", 1, 30),
+        "KEYFRAME_BA_INTERVAL": trial.suggest_int("KEYFRAME_BA_INTERVAL", 1, 10),
+        "MAX_REPROJ_ERROR": trial.suggest_float("MAX_REPROJ_ERROR", 10, 200),
+        "MIN_OBSERVATIONS": trial.suggest_int("MIN_OBSERVATIONS", 1, 10),
+        "MAP_CLEAN_MAX_DISTANCE": trial.suggest_float("MAP_CLEAN_MAX_DISTANCE", 5, 300),
+        "KPTS_UNIFORM_SELECTION_GRID_SIZE": trial.suggest_int("KPTS_UNIFORM_SELECTION_GRID_SIZE", 5, 50),
+        "MAX_PTS_PER_GRID": trial.suggest_int("MAX_PTS_PER_GRID", 2, 20),
+        "BA_FTOL": trial.suggest_float("BA_FTOL", 1e-5, 0.1),
+        "BA_XTOL": trial.suggest_float("BA_XTOL", 1e-5, 0.1),
+        "BA_GTOL": trial.suggest_float("BA_GTOL", 1e-5, 0.1),
+        "E_RANSAC_THRESHOLD": trial.suggest_float("E_RANSAC_THRESHOLD", 0.01, 1.0),
+        "H_RANSAC_THRESHOLD": trial.suggest_float("H_RANSAC_THRESHOLD", 0.01, 1.0),
+        "HOMOGRAPHY_INLIER_RATIO": trial.suggest_float("HOMOGRAPHY_INLIER_RATIO", 0.8, 1.0),
+        "LOST_THRESHOLD": trial.suggest_int("LOST_THRESHOLD", 1, 10),
+        "EPIPOLAR_THRESHOLD": trial.suggest_float("EPIPOLAR_THRESHOLD", 0.005, 0.1),
+        "RATIO_THRESH": trial.suggest_float("RATIO_THRESH", 0.1, 0.5),
+        "REPROJECTION_THRESHOLD": trial.suggest_float("REPROJECTION_THRESHOLD", 0.5, 5.0),
+        "DISTANCE_THRESHOLD": trial.suggest_float("DISTANCE_THRESHOLD", 50, 200)
     }
     return evaluate_config(params)
 
 # Увеличиваем число итераций
 study = optuna.create_study(direction="minimize")
-study.optimize(objective, n_trials=1000, callbacks=[log_study_results])  # 200 итераций для большей точности
+study.optimize(objective, n_trials=3000, callbacks=[log_study_results])
 
 print("Лучшие параметры:", study.best_params)
 print("Максимальная корреляция (с минимальным отрицательным значением):", -study.best_value)

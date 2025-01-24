@@ -1,8 +1,7 @@
 import logging
 import numpy as np
 import cv2
-import config
-from optimization.ba import BundleAdjustment  # Импортируем BundleAdjustment
+ # Импортируем BundleAdjustment
 
 logger = logging.getLogger(__name__)
 metrics_logger = logging.getLogger("metrics_logger")

@@ -1,8 +1,7 @@
 import cv2
 import numpy as np
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Any
 import logging
-import config
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -41,19 +40,40 @@ def select_uniform_keypoints_by_grid(
     return selected_keypoints
 
 class FeatureExtractor:
-    def __init__(self):
-        self.extractor = cv2.ORB_create(
-            nfeatures=8000, 
-            scaleFactor=1.2, 
-            nlevels=8,
-            edgeThreshold=31,
-            firstLevel=0,
-            WTA_K=2,
-            scoreType=cv2.ORB_HARRIS_SCORE,
-            patchSize=31,
-            fastThreshold=20
-        )
-        logger.info("FeatureExtractor инициализирован с параметрами ORB.")
+    def __init__(
+            self,
+            extractor: Any = None,
+            grid_size: int = 16,
+            max_pts_per_cell: int = 2,
+            nfeatures: int = 8000,
+            scaleFactor: float = 0.8,
+            nlevels: int = 8,
+            edgeThreshold: int = 8,
+            firstLevel: int = 0,
+            WTA_K: int = 2,
+            scoreType: int = cv2.ORB_HARRIS_SCORE,
+            patchSize: int = 31,
+            fastThreshold: int =20
+    ):
+        self.grid_size = grid_size
+        self.max_pts_per_cell = max_pts_per_cell
+
+        if extractor is None:
+            self.extractor = cv2.ORB_create(
+                nfeatures=nfeatures, 
+                scaleFactor=scaleFactor, 
+                nlevels=nlevels,
+                edgeThreshold=edgeThreshold,
+                firstLevel=firstLevel,
+                WTA_K=WTA_K,
+                scoreType=scoreType,
+                patchSize=patchSize,
+                fastThreshold=fastThreshold
+            )
+            logger.info("FeatureExtractor инициализирован с встроенными параметрами ORB.")
+        else:
+            self.extractor = extractor
+            logger.info("FeatureExtractor инициализирован с пользовательским детектором.")
 
     def extract_features(self, image: np.ndarray) -> Tuple[List[cv2.KeyPoint], Optional[np.ndarray]]:
         """
@@ -90,8 +110,8 @@ class FeatureExtractor:
             keypoints,
             image_gray.shape[0],
             image_gray.shape[1],
-            config.KPTS_UNIFORM_SELECTION_GRID_SIZE,
-            config.MAX_PTS_PER_GRID
+            self.grid_size,
+            self.max_pts_per_cell
         )
         logger.info(f"После распределения осталось {len(filtered_keypoints)} точек")
 
