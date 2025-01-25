@@ -4,7 +4,7 @@ import logging
 
 from typing import List, Tuple, Optional
 from scipy.spatial import cKDTree
-from image_processing.map_point import MapPoint
+from .map_point import MapPoint
 
 
 class OdometryCalculator:

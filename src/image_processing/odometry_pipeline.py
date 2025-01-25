@@ -12,7 +12,6 @@ from .odometry_calculation import OdometryCalculator
 from .frame_processor import FrameProcessor
 from .map_point import MapPoint
 from .trajectory_writer import TrajectoryWriter
-from optimization.ba import BundleAdjustment
 
 
 class OdometryPipeline:

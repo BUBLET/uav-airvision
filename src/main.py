@@ -6,13 +6,12 @@ from typing import Tuple
 
 import config
 
-from image_processing.feature_extraction import FeatureExtractor
-from image_processing.feature_matching import FeatureMatcher
-from image_processing.odometry_calculation import OdometryCalculator
-from image_processing.frame_processor import FrameProcessor
-from image_processing.trajectory_writer import TrajectoryWriter
+from image_processing import FeatureExtractor
+from image_processing import FeatureMatcher
+from image_processing import OdometryCalculator
+from image_processing import FrameProcessor
+from image_processing import TrajectoryWriter
 from image_processing.odometry_pipeline import OdometryPipeline
-from optimization.ba import BundleAdjustment
 
 
 def configure_logging() -> Tuple[logging.Logger, logging.Logger]:

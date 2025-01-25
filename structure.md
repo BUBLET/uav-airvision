@@ -5,15 +5,20 @@
     - combine.py
     - combined_code.txt
     - generate_structure.py
+    - optuna_study.log
     - README.md
     - requirements.txt
     - structure.md
 - **results/**
     - cam_traj_truth.txt
     - estimated_traj.txt
+- **scripts/**
+    - jpgToMp4.py
 - **src/**
     - config.py
     - main.py
+    - optim_opt.py
+    - __init__.py
     - **error_correction/**
         - error_correction.py
         - kalman_filter.py
@@ -21,8 +26,10 @@
         - feature_extraction.py
         - feature_matching.py
         - frame_processor.py
-        - lk_tracker.py
+        - map_point.py
         - odometry_calculation.py
+        - odometry_pipeline.py
+        - trajectory_writer.py
         - __init__.py
     - **optimization/**
         - ba.py
@@ -31,3 +38,8 @@
         - visualization.py
         - __init__.py
 - **tests/**
+    - test_feature_extraction.py
+    - test_feature_matching.py
+    - test_map_point.py
+    - traj_degr.py
+    - __init__.py
