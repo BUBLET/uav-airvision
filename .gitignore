@@ -3,3 +3,5 @@ scripts/
 combine.py
 combined_code.txt
 generate_structure.py
+src/optim_opt.py
+optuna_study.log

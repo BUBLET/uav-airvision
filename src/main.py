@@ -30,14 +30,12 @@ def configure_logging() -> Tuple[logging.Logger, logging.Logger]:
     runtime_handler.setFormatter(runtime_formatter)
     logger.addHandler(runtime_handler)
 
-    # Handler для warning и выше логов
     warning_handler = logging.FileHandler("logs/error.log", mode="w")
     warning_handler.setLevel(logging.WARNING)
     warning_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     warning_handler.setFormatter(warning_formatter)
     logger.addHandler(warning_handler)
 
-    # Логгер метрик
     metrics_logger = logging.getLogger("metrics_logger")
     metrics_logger.setLevel(logging.INFO)
     metrics_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -45,7 +43,6 @@ def configure_logging() -> Tuple[logging.Logger, logging.Logger]:
     metrics_file_handler.setFormatter(metrics_formatter)
     metrics_logger.addHandler(metrics_file_handler)
 
-    # Также можно добавить вывод логов на консоль
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
