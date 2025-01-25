@@ -26,9 +26,9 @@ metrics_file_handler = logging.FileHandler("logs/metrics.log", mode='w')
 metrics_file_handler.setFormatter(metrics_formatter)
 metrics_logger.addHandler(metrics_file_handler)
 
-from image_processing import FeatureExtractor, FeatureMatcher, OdometryCalculator, FrameProcessor
+from image_processing import FeatureExtractor, FeatureMatcher, OdometryCalculator, MapPoint, FrameProcessor
 from error_correction.error_correction import ErrorCorrector
-from optimization import BundleAdjustment
+from src.optimization.ba import BundleAdjustment
 from visualization import Visualizer3D
 
 
