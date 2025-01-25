@@ -1,117 +1,279 @@
 import logging
 import numpy as np
 import cv2
-import config
-from optimization.ba import BundleAdjustment  # Импортируем BundleAdjustment
-
-logger = logging.getLogger(__name__)
-metrics_logger = logging.getLogger("metrics_logger")
-
+from typing import List, Optional, Tuple
+from optimization.ba import BundleAdjustment
 
 class FrameProcessor:
-    def __init__(self,
-                 feature_extractor,
-                 feature_matcher,
-                 odometry_calculator,
-                 translation_threshold=config.TRANSLATION_THRESHOLD,
-                 rotation_threshold=config.ROTATION_THRESHOLD,
-                 triangulation_threshold=config.TRIANGULATION_THRESHOLD,
-                 bundle_adjustment_frames=config.BUNDLE_ADJUSTMENT_FRAMES  # Количество кадров для оптимизации
-                 ):
+    def __init__(
+            self,
+            feature_extractor,
+            feature_matcher,
+            odometry_calculator,
+            translation_threshold,
+            rotation_threshold,
+            triangulation_threshold,
+            bundle_adjustment_frames,
+            force_keyframe_interval=1,
+            homography_inlier_ratio=0.6
+    ):
+        self.logger = logging.getLogger(__name__)
+
         self.feature_extractor = feature_extractor
         self.feature_matcher = feature_matcher
         self.odometry_calculator = odometry_calculator
+
         self.translation_threshold = translation_threshold
         self.rotation_threshold = rotation_threshold
         self.triangulation_threshold = triangulation_threshold
         self.bundle_adjustment_frames = bundle_adjustment_frames
-        self.logger = logging.getLogger(__name__)
-    
-    def to_homogeneous(self, pose):
-        hom_pose = np.eye(4)
-        hom_pose[:3, :3] = pose[:3, :3]
-        hom_pose[:3, 3] = pose[:3, 3]
-        return hom_pose
-
-    def should_insert_keyframe(self, last_keyframe_pose, current_pose, frame_index, force_keyframe_interval=1):
-        if frame_index % force_keyframe_interval == 0:
-            self.logger.info(f"Forced keyframe insertion at frame {frame_index}.")
-            return True
+        self.force_keyframe_interval = force_keyframe_interval
+        self.homography_inlier_ratio = homography_inlier_ratio
         
-        # Преобразуем позы в однородные координаты
-        last_keyframe_pose_hom = self.to_homogeneous(last_keyframe_pose)
-        current_pose_hom = self.to_homogeneous(current_pose)
+    def _initialize_map(
+           self,
+           ref_keypoints: List[cv2.KeyPoint],
+           ref_descriptors: np.ndarray, 
+           curr_keypoints: List[cv2.KeyPoint],
+           curr_descriptors: np.ndarray 
+    ):
+        matches = self.feature_matcher.match_features(ref_descriptors, curr_descriptors)
+        if len(matches) < 4:
+            self.logger.warning("Слишком мало совпадений для инициализации.")
+            return None
 
-        # Рассчитываем относительное преобразование между позами
-        delta_pose = np.linalg.inv(last_keyframe_pose_hom) @ current_pose_hom
-        delta_translation = np.linalg.norm(delta_pose[:3, 3])
+        E_result = self.odometry_calculator.calculate_essential_matrix(ref_keypoints, curr_keypoints, matches)
+        H_result = self.odometry_calculator.calculate_homography_matrix(ref_keypoints, curr_keypoints, matches)
+        if not E_result or not H_result:
+            self.logger.warning("Не удалось вычислить E или H при инициализации.")
+            return None
 
-        # Вычисляем угол вращения через косинус угла
-        cos_angle = (np.trace(delta_pose[:3, :3]) - 1) / 2
-        cos_angle = np.clip(cos_angle, -1.0, 1.0)
-        delta_rotation = np.arccos(cos_angle)
+        E, _, error_E = E_result
+        H, _, error_H = H_result
 
-        # Логируем результаты
-        if np.isnan(delta_rotation):
-            self.logger.warning(f"Delta rotation is NaN. Cosine value: {cos_angle}")
-            return False
+        total_error = error_E + error_H
+        if total_error == 0:
+            self.logger.warning("Сумма ошибок E+H = 0.")
+            return None
+
+        # Сравниваем ошибки для выбора E или H
+        H_ratio = error_H / total_error
+        use_homography = (H_ratio > self.homography_inlier_ratio)
+
+        if use_homography:
+            self.logger.info("Используем H для инициализации.")
+            R, t, mask_pose = self.odometry_calculator.decompose_homography(
+                H, ref_keypoints, curr_keypoints, matches
+            )
         else:
-            self.logger.info(f"Frame: {frame_index}, Delta translation: {delta_translation}, "
-                            f"Delta rotation (deg): {np.rad2deg(delta_rotation)}")
+            self.logger.info("Используем E для инициализации.")
+            R, t, mask_pose = self.odometry_calculator.decompose_essential(
+                E, ref_keypoints, curr_keypoints, matches
+            )
 
-        # Проверяем превышение порогов
-        if delta_translation > self.translation_threshold or delta_rotation > self.rotation_threshold:
+        if R is None or t is None:
+            self.logger.warning("Не удалось восстановить позу из E/H.")
+            return None
+
+        # Проверяем угол триангуляции
+        median_angle = self.odometry_calculator.check_triangulation_angle(
+            R, t, ref_keypoints, curr_keypoints, matches
+        )
+        self.logger.info(f"Медианный угол триангуляции: {np.rad2deg(median_angle):.2f}°")
+        if median_angle < self.triangulation_threshold:
+            self.logger.warning("Угол триангуляции ниже порога")
+            return None
+
+        return R, t, matches, mask_pose
+        
+    def _triangulate_initial_points(
+        self,
+        R: np.ndarray,
+        t: np.ndarray,
+        ref_keypoints,
+        curr_keypoints,
+        ref_descriptors: np.ndarray,
+        curr_descriptors: np.ndarray,
+        matches,
+        mask_pose: np.ndarray,
+        frame_idx: int,
+        map_points: list
+    ) -> list:
+        """
+        Триангулирует 3D точки после инициализации и превращает их в структуру map_points.
+
+        """
+        map_points_array, inlier_matches = self.odometry_calculator.triangulate_points(
+            R, t, ref_keypoints, curr_keypoints, matches, mask_pose
+        )
+        ref_frame_idx = frame_idx - 1
+        curr_frame_idx = frame_idx
+        new_points = self.odometry_calculator.convert_points_to_structure(
+            map_points_array,
+            ref_keypoints,
+            curr_keypoints,
+            inlier_matches,
+            ref_descriptors,
+            curr_descriptors,
+            ref_frame_idx,
+            curr_frame_idx
+        )
+        map_points = new_points  
+        return map_points
+        
+    def _estimate_pose(
+        self,
+        map_points: list,
+        curr_keypoints,
+        curr_descriptors: np.ndarray,
+        last_pose: np.ndarray
+    ) -> Optional[np.ndarray]:
+        """
+        Оценивает позу через PnP.
+
+        """
+        visible_map_points, map_point_indices = self.odometry_calculator.visible_map_points(
+            map_points, curr_keypoints, curr_descriptors, last_pose
+        )
+
+        self.logger.info(f"Видимых точек карты: {len(visible_map_points)}")
+        if len(visible_map_points) < 4:
+            self.logger.warning("Недостаточно видимых точек для PnP.")
+            return None
+
+        object_points = np.array([mp.coordinates for mp in visible_map_points], dtype=np.float32)
+        image_points = np.array([curr_keypoints[idx].pt for idx in map_point_indices], dtype=np.float32)
+
+        retval, rvec, tvec, inliers = cv2.solvePnPRansac(
+            objectPoints=object_points,
+            imagePoints=image_points,
+            cameraMatrix=self.odometry_calculator.camera_matrix,
+            distCoeffs=None,
+            flags=cv2.SOLVEPNP_ITERATIVE
+        )
+
+        inliers_count = len(inliers) if (inliers is not None and retval) else 0
+        self.logger.info(f"PnP инлаеров: {inliers_count}")
+
+        if not retval or inliers_count < 4:
+            self.logger.warning("Не удалось восстановить позу из PnP.")
+            return None
+
+        R, _ = cv2.Rodrigues(rvec)
+        current_pose = np.hstack((R, tvec))
+        self.logger.info(f"Текущая поза:\n{current_pose}")
+        return current_pose
+
+    def _should_insert_keyframe(
+        self,
+        last_keyframe_pose: np.ndarray,
+        current_pose: np.ndarray,
+        frame_index: int
+    ) -> bool:
+        """
+        Логика решения о вставке нового кейфрейма:
+
+        """
+        if frame_index % self.force_keyframe_interval == 0:
+            self.logger.info(f"Форсированная вставка кейфрейма на кадре {frame_index}")
             return True
-        else:
+
+        last_hom = np.eye(4)
+        last_hom[:3, :4] = last_keyframe_pose
+        curr_hom = np.eye(4)
+        curr_hom[:3, :4] = current_pose
+
+        delta = np.linalg.inv(last_hom) @ curr_hom
+        delta_trans = np.linalg.norm(delta[:3, 3])
+
+        cos_angle = (np.trace(delta[:3, :3]) - 1) / 2
+        cos_angle = np.clip(cos_angle, -1.0, 1.0)
+        delta_rot = np.arccos(cos_angle)
+
+        if np.isnan(delta_rot):
+            self.logger.warning("Невалидное значение поворота при проверке кейфрейма.")
             return False
 
-    def update_optimized_values(self, optimized_camera_params, optimized_points_3d, keyframes, map_points):
-            """
-            Обновляет параметры камер и 3D точек после оптимизации.
+        self.logger.info(
+            f"Кадр {frame_index}, смещение = {delta_trans:.4f}, "
+            f"поворот (град) = {np.rad2deg(delta_rot):.2f}"
+        )
 
-            Параметры:
-            - optimized_camera_params: оптимизированные параметры камер.
-            - optimized_points_3d: оптимизированные 3D точки.
-            - keyframes: список кейфреймов для обновления.
-            - map_points: список точек карты для обновления.
-            """
-            # Обновление поз камер
-            for idx, kf in enumerate(keyframes):
-                rvec = optimized_camera_params[idx, :3]
-                tvec = optimized_camera_params[idx, 3:6]
-                R, _ = cv2.Rodrigues(rvec)
-                pose = np.hstack((R, tvec.reshape(3, 1)))
-                frame_idx, keypoints, descriptors, _ = kf
-                keyframes[idx] = (frame_idx, keypoints, descriptors, pose)
+        if delta_trans > self.translation_threshold or delta_rot > self.rotation_threshold:
+            return True
+        return False
 
-            # Обновление координат точек карты
-            for mp_idx, mp in enumerate(map_points):
-                mp.coordinates = optimized_points_3d[mp_idx]
-
-    def collect_bundle_adjustment_data(self, keyframes, map_points):
+    def _insert_keyframe(
+        self,
+        frame_idx: int,
+        curr_keypoints,
+        curr_descriptors: np.ndarray,
+        current_pose: np.ndarray,
+        keyframes: list,
+        map_points: list
+    ):
         """
-        Собирает данные для оптимизации Bundle Adjustment.
+        Добавляет новый кейфрейм и триангулирует новые точки на основе текущего и предыдущего кейфрейма.
 
-        Параметры:
-        - keyframes: список последних N кейфреймов.
-        - map_points: текущие точки карты.
-
-        Возвращает:
-        - camera_params: параметры камер.
-        - points_3d: координаты 3D точек.
-        - camera_indices: индексы камер для наблюдений.
-        - point_indices: индексы точек для наблюдений.
-        - points_2d: наблюдаемые 2D точки.
         """
-        import numpy as np
+        self.logger.info(f"Добавляем кейфрейм на кадре {frame_idx}.")
+        keyframes.append((frame_idx, curr_keypoints, curr_descriptors, current_pose))
+        if len(keyframes) < 2:
+            return
 
+        prev_keyframe = keyframes[-2]
+        matches = self.feature_matcher.match_features(prev_keyframe[2], curr_descriptors)
+        inlier_matches = self.odometry_calculator.get_inliers_epipolar(
+            prev_keyframe[1], curr_keypoints, matches
+        )
+        self.logger.info(f"Инлаеров: {len(inlier_matches)}")
+
+        if len(inlier_matches) < 8:
+            self.logger.warning("Слишком мало совпадений для триангуляции.")
+            return
+
+        new_map_points = self.odometry_calculator.triangulate_new_map_points(
+            prev_keyframe,
+            keyframes[-1],
+            inlier_matches
+        )
+        map_points.extend(new_map_points)
+        self.logger.info(f"Всего точек на карте: {len(map_points)}")
+
+    def _run_local_ba(
+            self, 
+            recent_keyframes: list, 
+            map_points: list):
+        """
+        Выполняет локальный BA на заданных кейфреймах.
+
+        """
+        data = self._collect_ba_data(recent_keyframes, map_points)
+        if not data:
+            return
+
+        camera_params, points_3d, camera_indices, point_indices, points_2d = data
+        ba = BundleAdjustment(self.odometry_calculator.camera_matrix)
+        opt_cam_params, opt_points_3d = ba.run_bundle_adjustment(
+            camera_params, points_3d, camera_indices, point_indices, points_2d
+        )
+        self._update_optimized_values(opt_cam_params, opt_points_3d, recent_keyframes, map_points)
+
+    def _collect_ba_data(
+        self,
+        keyframes: list,
+        map_points: list
+    ):
+        """
+        Сбор данных для локального BA (параметры камер, 3D точки, 2D наблюдения).
+
+        """
         camera_params = []
         points_3d = []
         camera_indices = []
         point_indices = []
         points_2d = []
 
-        # Создаем отображение от ID точки карты к индексу
         point_id_to_idx = {}
         idx = 0
         for mp in map_points:
@@ -119,231 +281,149 @@ class FrameProcessor:
             points_3d.append(mp.coordinates)
             idx += 1
 
-        # Сбор параметров камер из кейфреймов
         for kf in keyframes:
             pose = kf[3]
             R = pose[:, :3]
             t = pose[:, 3]
             rvec, _ = cv2.Rodrigues(R)
-            camera_param = np.hstack((rvec.flatten(), t.flatten()))
-            camera_params.append(camera_param)
+            params = np.hstack((rvec.flatten(), t.flatten()))
+            camera_params.append(params)
 
-        # Сбор наблюдений
-        for cam_idx, kf in enumerate(keyframes):
-            frame_idx, keypoints, descriptors, pose = kf
+        for cam_idx, kf_data in enumerate(keyframes):
+            frame_idx, keypoints, descriptors, pose = kf_data
             for mp in map_points:
                 for obs in mp.observations:
                     if obs[0] == frame_idx:
                         kp_idx = obs[1]
                         kp = keypoints[kp_idx]
-                        points_2d.append(kp.pt)
                         camera_indices.append(cam_idx)
                         point_indices.append(point_id_to_idx[mp.id])
+                        points_2d.append(kp.pt)
 
         if not points_2d:
-            self.logger.warning("No observations found for bundle adjustment.")
+            self.logger.warning("Нет наблюдений для BA.")
             return None
 
-        camera_params = np.array(camera_params)
-        points_3d = np.array(points_3d)
-        camera_indices = np.array(camera_indices, dtype=int)
-        point_indices = np.array(point_indices, dtype=int)
-        points_2d = np.array(points_2d)
+        return (
+            np.array(camera_params),
+            np.array(points_3d),
+            np.array(camera_indices, dtype=int),
+            np.array(point_indices, dtype=int),
+            np.array(points_2d)
+        )
 
-        return camera_params, points_3d, camera_indices, point_indices, points_2d
+    def _update_optimized_values(
+        self,
+        opt_cam_params: np.ndarray,
+        opt_points_3d: np.ndarray,
+        keyframes: list,
+        map_points: list
+    ):
+        """
+        Обновляет позы камер (кейфреймы) и координаты 3D точек после BA.
+        """
+        for i, kf in enumerate(keyframes):
+            frame_idx, kp, desc, _ = kf
+            rvec = opt_cam_params[i, :3]
+            tvec = opt_cam_params[i, 3:6]
+            R, _ = cv2.Rodrigues(rvec)
+            pose = np.hstack((R, tvec.reshape(3, 1)))
+            keyframes[i] = (frame_idx, kp, desc, pose)
 
-    def process_frame(self,
-                      frame_idx,
-                      current_frame,
-                      ref_keypoints,
-                      ref_descriptors,
-                      last_pose,
-                      map_points,
-                      initialization_completed,
-                      poses,
-                      keyframes
-                      ):
-        init_completed = initialization_completed
+        for i, mp in enumerate(map_points):
+            mp.coordinates = opt_points_3d[i]
 
-        # Извлечение ключевых точек и дескрипторов из текущего кадра
+    def _clean_local_map(
+        self,
+        map_points: list,
+        current_pose: np.ndarray
+    ) -> list:
+        """
+        Вызывает метод из odometry_calculator для очистки карты.
+
+        """
+        new_map_points = self.odometry_calculator.clean_local_map(map_points, current_pose)
+        self.logger.info(f"Точек на карте после очистки: {len(new_map_points)}")
+        return new_map_points
+
+    def process_frame(
+        self,
+        frame_idx: int,
+        current_frame,
+        ref_keypoints,
+        ref_descriptors: np.ndarray,
+        last_pose: np.ndarray,
+        map_points: list,
+        initialization_completed: bool,
+        poses: list,
+        keyframes: list
+    ):
+        """
+        Обрабатывает один кадр и запускает основные этапы SLAM/VSLAM.
+
+        """
         curr_keypoints, curr_descriptors = self.feature_extractor.extract_features(current_frame)
         if len(curr_keypoints) == 0:
-            self.logger.warning("Failed to detect keypoints in the current frame. Skipping frame.")
+            self.logger.warning("Не удалось извлечь фичи. Пропускаем кадр.")
             return None
-        
 
-        if not init_completed:
+        if not initialization_completed:
+            # Если нет опорных ключевых точек – устанавливаем их
             if ref_keypoints is None or ref_descriptors is None:
+                self.logger.info("Устанавливаем текущий кадр в качестве опорного для инициализации.")
                 ref_keypoints = curr_keypoints
                 ref_descriptors = curr_descriptors
-                self.logger.info("Reference keyframe set.")
-                return ref_keypoints, ref_descriptors, last_pose, map_points, init_completed
-            
-            # Сопоставление особенностей между опорным и текущим кадром
-            matches = self.feature_matcher.match_features(ref_descriptors, curr_descriptors)
-            if len(matches) < 4:
-                self.logger.warning(f"Not enough matches ({len(matches)}) for odometry computation. Skipping frame.")
-                return None
+                return ref_keypoints, ref_descriptors, last_pose, map_points, initialization_completed
 
-            # Вычисление матриц Essential и Homography
-            E_result = self.odometry_calculator.calculate_essential_matrix(ref_keypoints, curr_keypoints, matches)
-            H_result = self.odometry_calculator.calculate_homography_matrix(ref_keypoints, curr_keypoints, matches)
+            init_result = self._initialize_map(ref_keypoints, ref_descriptors,
+                                               curr_keypoints, curr_descriptors)
+            if not init_result:
+                return None  # Инициализация не удалась
 
-            if E_result is None or H_result is None:
-                self.logger.warning("Failed to compute E or H matrices. Skipping frame.")
-                return None
+            R, t, matches, mask_pose = init_result
+            initial_pose = np.hstack((R, t))
+            poses.append(initial_pose)
+            keyframes.append((frame_idx, curr_keypoints, curr_descriptors, initial_pose))
+            last_pose = initial_pose
+            initialization_completed = True
+            self.logger.info("Инициализация прошла успешно.")
 
-            E, mask_E, error_E = E_result
-            H, mask_H, error_H = H_result
+            map_points = self._triangulate_initial_points(
+                R, t,
+                ref_keypoints, curr_keypoints,
+                ref_descriptors, curr_descriptors,
+                matches, mask_pose,
+                frame_idx,
+                map_points
+            )
 
-            # Выбор между E и H на основе ошибки
-            total_error = error_E + error_H
-            if total_error == 0:
-                self.logger.warning("Total error is zero. Skipping frame.")
-                return None
+            ref_keypoints = curr_keypoints
+            ref_descriptors = curr_descriptors
 
-            H_ratio = error_H / total_error
-            use_homography = H_ratio > config.HOMOGRAPHY_INLIER_RATIO
+            return ref_keypoints, ref_descriptors, last_pose, map_points, initialization_completed
 
-            if use_homography:
-                self.logger.info("Homography matrix chosen for decomposition.")
-                R, t, mask_pose = self.odometry_calculator.decompose_homography(H, ref_keypoints, curr_keypoints, matches)
-            else:
-                self.logger.info("Essential matrix chosen for decomposition.")
-                R, t, mask_pose = self.odometry_calculator.decompose_essential(E, ref_keypoints, curr_keypoints, matches)
-
-            if R is None or t is None:
-                self.logger.warning("Failed to recover camera pose. Skipping frame.")
-                return None
-
-            # Проверка угла триангуляции
-            median_angle = self.odometry_calculator.check_triangulation_angle(R, t, ref_keypoints, curr_keypoints, matches)
-            self.logger.info(f"Median triangulation angle: {np.rad2deg(median_angle):.2f} degrees.")
-
-            if median_angle < self.triangulation_threshold:
-                self.logger.warning("Median triangulation angle below threshold. Moving to next frame.")
-                return None
-            else:
-                self.logger.info("Initialization completed.")
-                init_completed = True
-                initial_pose = np.hstack((R, t))
-                poses.append(initial_pose)
-                keyframes.append((frame_idx, curr_keypoints, curr_descriptors, initial_pose))
-                last_pose = initial_pose
-
-                # Триангуляция начальных точек карты
-                map_points_array, inlier_matches = self.odometry_calculator.triangulate_points(
-                    R, t, ref_keypoints, curr_keypoints, matches, mask_pose
-                )
-
-                # Преобразование в структуру map points
-                ref_frame_idx = frame_idx - 1
-                curr_frame_idx = frame_idx
-
-                map_points = self.odometry_calculator.convert_points_to_structure(
-                    map_points_array,
-                    ref_keypoints,
-                    curr_keypoints,
-                    inlier_matches,
-                    ref_descriptors,
-                    curr_descriptors,
-                    ref_frame_idx,
-                    curr_frame_idx
-                )
-
-                ref_keypoints = curr_keypoints
-                ref_descriptors = curr_descriptors
-
-                return ref_keypoints, ref_descriptors, last_pose, map_points, init_completed
         else:
-            # Оценка позы камеры для последующих кадров
-            visible_map_points, map_point_indices = self.odometry_calculator.visible_map_points(
-                map_points, curr_keypoints, curr_descriptors, last_pose
-            )
-
-            self.logger.info(f"Number of visible map points: {len(visible_map_points)}")
-
-            if len(visible_map_points) < 4:
-                self.logger.warning("Not enough visible map points for pose estimation. Skipping frame.")
-                return None
-
-            # Подготовка соответствий 2D-3D
-            object_points = np.array([mp.coordinates for mp in visible_map_points], dtype=np.float32)
-            image_points = np.array([curr_keypoints[idx].pt for idx in map_point_indices], dtype=np.float32)
-
-            # Оценка позы камеры с помощью PnP
-            retval, rvec, tvec, inliers = cv2.solvePnPRansac(
-                objectPoints=object_points,
-                imagePoints=image_points,
-                cameraMatrix=self.odometry_calculator.camera_matrix,
-                distCoeffs=None,
-                flags=cv2.SOLVEPNP_ITERATIVE
-            )
-
-            self.logger.info(f"Number of inliers in PnP: {len(inliers) if inliers is not None else 0}")
-
-            if not retval or inliers is None or len(inliers) < 4:
-                self.logger.warning("Failed to estimate camera pose. Skipping frame")
-                return None
-            
-            R, _ = cv2.Rodrigues(rvec)
-            t = tvec
-
-            current_pose = np.hstack((R, t))
-            self.logger.info(f"Current pose at frame {frame_idx}:\n{current_pose}")
-
-            if np.allclose(current_pose, last_pose):
-                self.logger.warning("Current pose did not change from last pose.")
-            else:
-                self.logger.info("Current pose updated.")
+            current_pose = self._estimate_pose(map_points, curr_keypoints, curr_descriptors, last_pose)
+            if current_pose is None:
+                return None  # Позу не удалось восстановить
 
             poses.append(current_pose)
             last_pose = current_pose
 
-            # Добавление нового кейфрейма и обновление map points
-            if self.should_insert_keyframe(last_pose, current_pose, frame_idx):
-                self.logger.info(f"Inserting new keyframe at frame {frame_idx}")
-                keyframes.append((frame_idx, curr_keypoints, curr_descriptors, current_pose))
-                
-                # Сопоставление с предыдущим ключевым кадром
-                prev_keyframe = keyframes[-2]
-                matches = self.feature_matcher.match_features(prev_keyframe[2], curr_descriptors)
-                inlier_matches = self.odometry_calculator.get_inliers_epipolar(
-                    prev_keyframe[1], curr_keypoints, matches)
-                self.logger.info(f"Found {len(inlier_matches)} inlier matches for triangulation.")
-                
-                if len(inlier_matches) < 8:
-                    self.logger.warning(f"Not enough matches ({len(inlier_matches)}) for triangulation. Skipping keyframe insertion.")
-                else:
-                    # Триангуляция новых точек карты
-                    new_map_points = self.odometry_calculator.triangulate_new_map_points(
-                        prev_keyframe,
-                        keyframes[-1],
-                        inlier_matches,
-                    )
-                    map_points.extend(new_map_points)
-                    self.logger.info(f"Total map points: {len(map_points)}")
+            if self._should_insert_keyframe(keyframes[-1][3], current_pose, frame_idx):
+                self._insert_keyframe(
+                    frame_idx,
+                    curr_keypoints,
+                    curr_descriptors,
+                    current_pose,
+                    keyframes,
+                    map_points
+                )
 
-                # Проверка наличия достаточного количества кейфреймов для BA
                 if len(keyframes) >= self.bundle_adjustment_frames:
-                    # Сбор данных для BA
-                    ba_data = self.collect_bundle_adjustment_data(keyframes[-self.bundle_adjustment_frames:], map_points)
-                    if ba_data:
-                        camera_params, points_3d, camera_indices, point_indices, points_2d = ba_data
+                    self._run_local_ba(keyframes[-self.bundle_adjustment_frames:], map_points)
 
-                        # Создание экземпляра BA
-                        ba = BundleAdjustment(self.odometry_calculator.camera_matrix)
-
-                        # Запуск BA
-                        optimized_camera_params, optimized_points_3d = ba.run_bundle_adjustment(
-                            camera_params, points_3d, camera_indices, point_indices, points_2d
-                        )
-
-                        # Обновление поз и точек карты
-                        self.update_optimized_values(optimized_camera_params, optimized_points_3d, keyframes[-self.bundle_adjustment_frames:], map_points)
-            
-            map_points = self.odometry_calculator.clean_local_map(map_points, current_pose)
-            self.logger.info(f"Number of map points after cleaning: {len(map_points)}")
+            map_points = self._clean_local_map(map_points, current_pose)
 
             self.odometry_calculator.update_connections_after_pnp(
                 map_points, curr_keypoints, curr_descriptors, frame_idx
@@ -352,6 +432,4 @@ class FrameProcessor:
             ref_keypoints = curr_keypoints
             ref_descriptors = curr_descriptors
 
-            return ref_keypoints, ref_descriptors, last_pose, map_points, init_completed
-
-  
+            return ref_keypoints, ref_descriptors, last_pose, map_points, initialization_completed
