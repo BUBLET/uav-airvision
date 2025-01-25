@@ -70,7 +70,7 @@ class FeatureExtractor:
                 patchSize=patchSize,
                 fastThreshold=fastThreshold
             )
-            logger.info("FeatureExtractor инициализирован с встроенными параметрами ORB.")
+            logger.info("FeatureExtractor инициализирован с  ORB.")
         else:
             self.extractor = extractor
             logger.info("FeatureExtractor инициализирован с пользовательским детектором.")
