@@ -46,14 +46,14 @@ class FeatureExtractor:
             grid_size: int = 16,
             max_pts_per_cell: int = 2,
             nfeatures: int = 8000,
-            scaleFactor: float = 0.8,
+            scaleFactor: float = 1.2,
             nlevels: int = 8,
-            edgeThreshold: int = 8,
+            edgeThreshold: int = 15,
             firstLevel: int = 0,
             WTA_K: int = 2,
             scoreType: int = cv2.ORB_HARRIS_SCORE,
             patchSize: int = 31,
-            fastThreshold: int =20
+            fastThreshold: int =10
     ):
         self.grid_size = grid_size
         self.max_pts_per_cell = max_pts_per_cell

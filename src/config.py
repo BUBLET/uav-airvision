@@ -16,19 +16,19 @@ CAMERA_MATRIX: np.ndarray = np.array([
 
 DIST_COEFFS: np.ndarray = np.zeros((4, 1), dtype=np.float64)
 
-LOWE_RATIO: float = 0.9
+LOWE_RATIO: float = 0.75
 KNN_K: int = 2
 N_FEATURES: int = 9000
 N_LEVELS: int = 8
-EDGE_THRESHOLD: int = 8
+EDGE_THRESHOLD: int = 15
 
-KPTS_UNIFORM_SELECTION_GRID_SIZE: int = 48
-MAX_PTS_PER_GRID: int = 2
-INIT_SCALE: float = 1.0
+KPTS_UNIFORM_SELECTION_GRID_SIZE: int = 16
+MAX_PTS_PER_GRID: int = 8
+INIT_SCALE: float = 1.2
 WTA_K: int = 3
 SCORE_TYPE: int = cv2.ORB_HARRIS_SCORE
 PATCH_SIZE: int = 31
-FAST_THRESHOLD: int = 30
+FAST_THRESHOLD: int = 10
 
 E_RANSAC_THRESHOLD: float = 0.6
 H_RANSAC_THRESHOLD: float = 0.1
@@ -47,10 +47,10 @@ BUNDLE_ADJUSTMENT_FRAMES: int = 12
 FORCE_KEYFRAME_INTERVAL: int = 1
 HOMOGRAPHY_INLIER_RATIO: float = 0.86
 
-BA_MAX_NFEV: int = 100
+BA_MAX_NFEV: int = 20
 BA_FTOL: float = 0.1
-BA_XTOL: float = 0.008
-BA_GTOL: float = 0.085
+BA_XTOL: float = 0.1
+BA_GTOL: float = 0.1
 
 LOST_THRESHOLD: int = 10
 EPIPOLAR_THRESHOLD: float = 0.082

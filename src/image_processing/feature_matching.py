@@ -51,6 +51,6 @@ class FeatureMatcher:
             if m.distance < self.lowe_ratio * n.distance:
                 good_matches.append(m)
 
-        self.logger.info(f"Найдено {len(good_matches)} хороших соответствий.")
-
+        self.logger.info(f"Найдено {len(good_matches)} хороших соответствий")
+        self.logger.debug(f"Общее число пар для Лоу-теста: {len(matches)}, осталось good: {len(good_matches)}")  
         return good_matches

@@ -54,7 +54,6 @@ class OdometryPipeline:
         initial_pose = np.hstack((initial_rotation, initial_translation))
         self.keyframes.append((frame_idx, ref_keypoints, ref_descriptors, initial_pose))
         self.poses.append(initial_pose)
-        self.initialization_completed = True
 
         self.trajectory_writer.write_pose(initial_pose)
 

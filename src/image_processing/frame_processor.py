@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import cv2
 from typing import List, Optional, Tuple
-from src.optimization.ba import BundleAdjustment
+from src.optimization import BundleAdjustment
 
 
 class FrameProcessor:
@@ -49,8 +49,13 @@ class FrameProcessor:
             self.logger.warning("Не удалось вычислить E или H при инициализации.")
             return None
 
-        E, _, error_E = E_result
-        H, _, error_H = H_result
+        E, mask_e, error_E = E_result
+        H, mask_h, error_H = H_result
+
+        inliers_e = mask_e.ravel().sum() if mask_e is not None else 0
+        inliers_h = mask_h.ravel().sum() if mask_h is not None else 0
+        self.logger.info(f"[INIT] E_inliers={inliers_e}, E_error={error_E:.3f}; "
+                     f"H_inliers={inliers_h}, H_error={error_H:.3f}")
 
         total_error = error_E + error_H
         if total_error == 0:
@@ -59,7 +64,7 @@ class FrameProcessor:
 
         # Сравниваем ошибки для выбора E или H
         H_ratio = error_H / total_error
-        use_homography = (H_ratio > self.homography_inlier_ratio)
+        use_homography = (H_ratio < self.homography_inlier_ratio)
 
         if use_homography:
             self.logger.info("Используем H для инициализации.")
@@ -78,7 +83,7 @@ class FrameProcessor:
 
         # Проверяем угол триангуляции
         median_angle = self.odometry_calculator.check_triangulation_angle(
-            R, t, ref_keypoints, curr_keypoints, matches
+            R, t, ref_keypoints, curr_keypoints, matches, mask_pose
         )
         self.logger.info(f"Медианный угол триангуляции: {np.rad2deg(median_angle):.2f}°")
         if median_angle < self.triangulation_threshold:
@@ -369,6 +374,7 @@ class FrameProcessor:
             return None
 
         if not initialization_completed:
+            self.logger.info("[FP] Старт инициализации FP")
             # Если нет опорных ключевых точек – устанавливаем их
             if ref_keypoints is None or ref_descriptors is None:
                 self.logger.info("Устанавливаем текущий кадр в качестве опорного для инициализации.")
@@ -379,7 +385,10 @@ class FrameProcessor:
             init_result = self._initialize_map(ref_keypoints, ref_descriptors,
                                                curr_keypoints, curr_descriptors)
             if not init_result:
-                return None  # Инициализация не удалась
+                self.logger.warning("[FP] Инициализация прервана на _initialize_map")
+                return None
+            else:
+                self.logger.info("init_result = true") 
 
             R, t, matches, mask_pose = init_result
             initial_pose = np.hstack((R, t))
@@ -397,6 +406,9 @@ class FrameProcessor:
                 frame_idx,
                 map_points
             )
+            
+            if map_points == []:
+                self.logger.warning("[FP] Пустой map_points после _triangulate_initial_points в инициализации")
 
             ref_keypoints = curr_keypoints
             ref_descriptors = curr_descriptors

@@ -52,6 +52,57 @@ class OdometryCalculator:
     
         self.logger.info("OdometryCalculator инициализирован")
 
+    def triangulate_new_map_points(
+        self,
+        keyframe1: Tuple[int, List[cv2.KeyPoint], Optional[np.ndarray], np.ndarray],
+        keyframe2: Tuple[int, List[cv2.KeyPoint], Optional[np.ndarray], np.ndarray],
+        matches: List[cv2.DMatch]
+    ) -> List[MapPoint]:
+        """
+        Триангулирует новые map points между двумя keyframes.
+
+        """
+        idx1, keypoints1, descriptors1, pose1 = keyframe1
+        idx2, keypoints2, descriptors2, pose2 = keyframe2
+
+        if descriptors1 is None or descriptors2 is None:
+            self.logger.warning("triangulate_new_map_points: один из дескрипторов None.")
+            return []
+
+        if len(descriptors1) == 0 or len(descriptors2) == 0:
+            self.logger.warning("triangulate_new_map_points: один из дескрипторных массивов пуст.")
+            return []
+
+        if len(matches) < 8:
+            self.logger.warning("Недостаточно совпадений для триангуляции новых map points (<8).")
+            return []
+
+        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches])
+        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches])
+
+        R1, t1 = pose1[:, :3], pose1[:, 3]
+        R2, t2 = pose2[:, :3], pose2[:, 3]
+
+        proj_matrix1 = self.camera_matrix @ np.hstack((R1, t1.reshape(3, 1)))
+        proj_matrix2 = self.camera_matrix @ np.hstack((R2, t2.reshape(3, 1)))
+
+        pts4D_hom = cv2.triangulatePoints(proj_matrix1, proj_matrix2, src_pts.T, dst_pts.T)
+        pts3D = (pts4D_hom[:3] / pts4D_hom[3]).T  # (N, 3)
+
+        new_map_points = []
+        for i in range(pts3D.shape[0]):
+            mp = MapPoint(id_=i, coordinates=pts3D[i])
+
+            mp.descriptors.append(descriptors1[matches[i].queryIdx])
+            mp.descriptors.append(descriptors2[matches[i].trainIdx])
+
+            mp.observations.append((idx1, matches[i].queryIdx))
+            mp.observations.append((idx2, matches[i].trainIdx))
+
+            new_map_points.append(mp)
+
+        return new_map_points
+
     def _calculate_symmetric_transfer_error_homography(
             self,
             H: np.ndarray,
@@ -187,6 +238,9 @@ class OdometryCalculator:
 
         E, mask = result
 
+        inliers_count = np.count_nonzero(mask)
+        self.logger.debug(f"[E] Inliers = {inliers_count}/{len(matches)}")
+
         src_inliers = src_pts[mask.ravel() == 1]
         dst_inliers = dst_pts[mask.ravel() == 1]
         error = self.calculate_symmetric_transfer_error(E, src_inliers, dst_inliers, is_homography=False)
@@ -317,6 +371,9 @@ class OdometryCalculator:
             return None  
 
         H, mask = result
+
+        inliers_count = np.count_nonzero(mask)
+        self.logger.debug(f"[H] Inliers = {inliers_count}/{len(matches)}")
 
         error = self.calculate_symmetric_transfer_error(H, src_pts, dst_pts, is_homography=True)
         return H, mask, error
@@ -464,6 +521,100 @@ class OdometryCalculator:
         src_pts, dst_pts = self._extract_corresponding_points_for_inliers(prev_keypoints, curr_keypoints, inlier_matches)
         pts3D = self._triangulate(src_pts, dst_pts, R, t)
         return pts3D, inlier_matches
+
+    def _find_fundamental_matrix(
+            self,
+            src_pts: np.ndarray,
+            dst_pts: np.ndarray,
+            ransac_thresh: float,
+            confidence: float = 0.99
+    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        """
+        Находит фундаментальную матрицу между двумя наборами точек.
+
+        """
+        if len(src_pts) < 8:
+            self.logger.warning("Недостаточно точек для вычисления фундаментальной матрицы.")
+            return None, None
+
+        F, mask = cv2.findFundamentalMat(
+            src_pts,
+            dst_pts,
+            method=cv2.FM_RANSAC,
+            ransacReprojThreshold=ransac_thresh,
+            confidence=confidence
+        )
+        if F is None or mask is None:
+            self.logger.warning("Не удалось вычислить фундаментальную матрицу.")
+            return None, None
+
+        return F, mask
+    
+    def get_inliers_epipolar(
+        self,
+        prev_keypoints: List[cv2.KeyPoint],
+        curr_keypoints: List[cv2.KeyPoint],
+        matches: List[cv2.DMatch],
+        ransac_thresh: float = 1.0
+    ) -> List[cv2.DMatch]:
+        """
+        Главный метод для получения инлайнеров через эпиполярную фильтрацию.
+
+        """
+        src_pts, dst_pts = self._extract_corresponding_points(prev_keypoints, curr_keypoints, matches)
+
+        F, mask = self._find_fundamental_matrix(src_pts, dst_pts, ransac_thresh)
+
+        inlier_matches = self._filter_inlier_matches(matches, mask)
+
+        self.logger.info(
+            f"get_inliers_epipolar: {len(inlier_matches)} / {len(matches)} inliers"
+        )
+        return inlier_matches
+
+    def check_triangulation_angle(
+        self,
+        R: np.ndarray,
+        t: np.ndarray,
+        prev_keypoints: List[cv2.KeyPoint],
+        curr_keypoints: List[cv2.KeyPoint],
+        matches: List[cv2.DMatch],
+        mask_pose: Optional[np.ndarray] = None
+    ) -> float:
+        """
+        Вычисляет параллакс между двумя кадрами,
+
+        """
+        # 1) Триангулируем 3D-точки, используя готовый метод
+        pts3D, inlier_matches = self.triangulate_points(
+            R, t,
+            prev_keypoints,
+            curr_keypoints,
+            matches,
+            mask_pose
+        )
+        if len(pts3D) == 0:
+            self.logger.warning("check_triangulation_angle: Нет 3D-точек для вычисления угла.")
+            return 0.0
+
+        rays_cam1 = pts3D
+
+        rays_cam2 = (R @ rays_cam1.T + t.reshape(3, 1)).T  # shape: (N,3)
+
+
+        norms1 = np.linalg.norm(rays_cam1, axis=1, keepdims=True) + 1e-9
+        norms2 = np.linalg.norm(rays_cam2, axis=1, keepdims=True) + 1e-9
+
+        rays_cam1_norm = rays_cam1 / norms1
+        rays_cam2_norm = rays_cam2 / norms2
+
+        cos_angles = np.sum(rays_cam1_norm * rays_cam2_norm, axis=1)
+        cos_angles = np.clip(cos_angles, -1.0, 1.0)
+
+        angles = np.arccos(cos_angles) 
+
+        median_angle = np.median(angles)
+        return float(median_angle)
 
     def _filter_points_by_depth(
         self,

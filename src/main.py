@@ -163,7 +163,7 @@ def main():
     WTA_K = 3
     scoreType = cv2.ORB_HARRIS_SCORE
     patchSize = 31
-    fastThreshold = 30
+    fastThreshold = 10
 
     # Параметры для FeatureMatcher
     knn_k = 2
