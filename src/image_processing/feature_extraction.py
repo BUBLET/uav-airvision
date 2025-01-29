@@ -14,6 +14,7 @@ def select_uniform_keypoints_by_grid(
         grid_size: int,
         max_pts_per_cell: int
 ) -> List[cv2.KeyPoint]:
+    
     rows = image_rows // grid_size
     cols = image_cols // grid_size
 
@@ -24,6 +25,7 @@ def select_uniform_keypoints_by_grid(
 
     selected_keypoints = []
     count_total = 0
+
 
     for kpt in  keypoints:
         row_idx = int(kpt.pt[1]) // grid_size

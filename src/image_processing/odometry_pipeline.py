@@ -1,5 +1,3 @@
-# src/image_processing/odometry_pipeline.py
-
 import logging
 import cv2
 import numpy as np

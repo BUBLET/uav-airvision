@@ -91,7 +91,7 @@ class OdometryCalculator:
 
         new_map_points = []
         for i in range(pts3D.shape[0]):
-            mp = MapPoint(id_=i, coordinates=pts3D[i])
+            mp = MapPoint(coordinates=pts3D[i])
 
             mp.descriptors.append(descriptors1[matches[i].queryIdx])
             mp.descriptors.append(descriptors2[matches[i].trainIdx])
@@ -564,8 +564,11 @@ class OdometryCalculator:
         src_pts, dst_pts = self._extract_corresponding_points(prev_keypoints, curr_keypoints, matches)
 
         F, mask = self._find_fundamental_matrix(src_pts, dst_pts, ransac_thresh)
-
-        inlier_matches = self._filter_inlier_matches(matches, mask)
+        
+        if mask is not None:
+            inlier_matches = self._filter_inlier_matches(matches, mask)
+        else:
+            return []
 
         self.logger.info(
             f"get_inliers_epipolar: {len(inlier_matches)} / {len(matches)} inliers"
@@ -637,21 +640,18 @@ class OdometryCalculator:
         inlier_matches_valid: List[cv2.DMatch],
         prev_frame_idx: int,
         curr_frame_idx: int,
-        start_id: int
     ) -> List[MapPoint]:
         """
         Создаёт объекты MapPoint из отсортированных 3D-точек и дескрипторов.
         """
         map_points = []
-        current_id = start_id
         for i, point_coords in enumerate(pts3D_valid):
-            mp = MapPoint(id_=current_id, coordinates=point_coords)
+            mp = MapPoint(coordinates=point_coords)
             mp.descriptors.append(descriptors_prev[i])
             mp.descriptors.append(descriptors_curr[i])
             mp.observations.append((prev_frame_idx, inlier_matches_valid[i].queryIdx))
             mp.observations.append((curr_frame_idx, inlier_matches_valid[i].trainIdx))
             map_points.append(mp)
-            current_id += 1
         return map_points
 
     def convert_points_to_structure(
@@ -664,7 +664,6 @@ class OdometryCalculator:
         curr_descriptors: np.ndarray,
         prev_frame_idx: int,
         curr_frame_idx: int,
-        start_id: int = 0
     ) -> List[MapPoint]:
         """
         Преобразует триангулированные 3D-точки в объекты MapPoint, связывает их с дескрипторами.
@@ -693,7 +692,6 @@ class OdometryCalculator:
             inlier_matches_valid,
             prev_frame_idx,
             curr_frame_idx,
-            start_id
         )
         self.logger.info(f"Добавлено {len(map_points)} новых точек карты.")
         return map_points

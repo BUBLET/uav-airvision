@@ -2,8 +2,7 @@ import logging
 import numpy as np
 import cv2
 from typing import List, Optional, Tuple
-from src.optimization import BundleAdjustment
-
+from src.optimization.ba import BundleAdjustment
 
 class FrameProcessor:
     def __init__(
@@ -184,30 +183,23 @@ class FrameProcessor:
             self.logger.info(f"Форсированная вставка кейфрейма на кадре {frame_index}")
             return True
 
-        last_hom = np.eye(4)
-        last_hom[:3, :4] = last_keyframe_pose
-        curr_hom = np.eye(4)
-        curr_hom[:3, :4] = current_pose
-
-        delta = np.linalg.inv(last_hom) @ curr_hom
-        delta_trans = np.linalg.norm(delta[:3, 3])
-
-        cos_angle = (np.trace(delta[:3, :3]) - 1) / 2
-        cos_angle = np.clip(cos_angle, -1.0, 1.0)
-        delta_rot = np.arccos(cos_angle)
-
-        if np.isnan(delta_rot):
-            self.logger.warning("Невалидное значение поворота при проверке кейфрейма.")
-            return False
+        map_density = len(self.map_points) / (self.image_width * self.image_height)
+        dynamic_trans_thresh = self.translation_threshold * (1 + map_density*0.1)
+        
+        # Рассчитываем изменение позы
+        delta_trans = np.linalg.norm(current_pose[:3,3] - last_keyframe_pose[:3,3])
+        cos_angle = (np.trace(current_pose[:3,:3].T @ last_keyframe_pose[:3,:3]) - 1) / 2
+        delta_rot = np.arccos(np.clip(cos_angle, -1.0, 1.0))
 
         self.logger.info(
             f"Кадр {frame_index}, смещение = {delta_trans:.4f}, "
             f"поворот (град) = {np.rad2deg(delta_rot):.2f}"
         )
 
-        if delta_trans > self.translation_threshold or delta_rot > self.rotation_threshold:
-            return True
-        return False
+        return (delta_trans > dynamic_trans_thresh or 
+                delta_rot > self.rotation_threshold or
+                frame_index % self.force_keyframe_interval == 0)
+
 
     def _insert_keyframe(
         self,
