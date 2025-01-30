@@ -411,7 +411,7 @@ class FrameProcessor:
         if ref_keypoints is not None and ref_descriptors is not None and descriptors is not None:
             # Сопоставление дескрипторов между предыдущим и текущим кадрами
             good_matches, mask = self.feature_matcher.match_features(ref_descriptors, descriptors)
-            MAX_DISPLAY_MATCHES = 10  # Максимальное количество отображаемых совпадений
+            MAX_DISPLAY_MATCHES = 5000  # Максимальное количество отображаемых совпадений
 
             if good_matches and mask is not None:
                 # Разделение inliers и outliers на основе маски
