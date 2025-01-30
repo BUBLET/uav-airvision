@@ -25,25 +25,26 @@ class FeatureMatcher:
             self.logger = logger or logging.getLogger(__name__)
             self.logger.info(f"FeatureMatch инициализирован с matcher по умолчанию")
 
-
     def match_features(
         self,
         descriptors1: np.ndarray,
         descriptors2: np.ndarray
-    ) -> List[cv2.DMatch]:
-
+    ) -> Tuple[List[cv2.DMatch], Optional[np.ndarray]]:
+        """
+        Выполняет сопоставление дескрипторов между двумя изображениями и возвращает хорошие совпадения и маску inliers.
+        """
         if descriptors1 is None or descriptors2 is None:
             raise ValueError("Дескрипторы не могут быть None.")
 
         if len(descriptors1) == 0 or len(descriptors2) == 0:
             self.logger.warning("descriptors are empty")
-            return []
+            return [], None
 
         # Выполняем KNN-сопоставление
         matches = self.matcher.knnMatch(descriptors1, descriptors2, k=self.knn_k)
         if len(matches) == 0:
             self.logger.warning("no matches")
-            return []
+            return [], None
         
         # Применяем тест соотношения Лоу
         good_matches = []
@@ -53,4 +54,11 @@ class FeatureMatcher:
 
         self.logger.info(f"Найдено {len(good_matches)} хороших соответствий")
         self.logger.debug(f"Общее число пар для Лоу-теста: {len(matches)}, осталось good: {len(good_matches)}")  
-        return good_matches
+
+        # Создаём маску inliers
+        mask = np.zeros(len(matches), dtype=np.uint8)
+        for i, (m, n) in enumerate(matches):
+            if m.distance < self.lowe_ratio * n.distance:
+                mask[i] = 1
+
+        return good_matches, mask

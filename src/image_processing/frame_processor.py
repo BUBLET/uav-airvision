@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 from typing import List, Optional, Tuple
 from optimization.ba import BundleAdjustment
+from .feature_extraction import select_uniform_keypoints_by_grid
 
 class FrameProcessor:
     def __init__(
@@ -357,30 +358,104 @@ class FrameProcessor:
     ):
         """
         Обрабатывает один кадр и запускает основные этапы SLAM/VSLAM.
-
         """
+        # Извлечение ключевых точек и дескрипторов из текущего кадра
         curr_keypoints, curr_descriptors = self.feature_extractor.extract_features(current_frame)
         if len(curr_keypoints) == 0:
             self.logger.warning("Не удалось извлечь фичи. Пропускаем кадр.")
             return None
-        
+
+        # Визуализация всех ключевых точек на текущем кадре
         frame_with_keypoints = cv2.drawKeypoints(
             current_frame, 
             curr_keypoints, 
             None, 
-            color=(0, 255, 0), 
-            flags=cv2.DrawMatchesFlags_DEFAULT
+            color=(0, 255, 0),  # Зеленый цвет для ключевых точек
+            flags=cv2.DrawMatchesFlags_DRAW_RICH_KEYPOINTS
         )
         cv2.imshow('Ключевые Точки', frame_with_keypoints)
         self.logger.info(f"Отображение ключевых точек для кадра {frame_idx}. Нажмите любую клавишу для продолжения или ESC для выхода.")
-        key = cv2.waitKey(0) 
+        key = cv2.waitKey(0)  # Ожидание нажатия клавиши
 
-        if key == 27:  
+        if key == 27:  # Если нажата клавиша ESC, завершить работу
             self.logger.info("Завершение работы по запросу пользователя.")
             cv2.destroyAllWindows()
             exit()
 
+        # Логирование количества ключевых точек до и после фильтрации
+        self.logger.info(f"Обнаружено {len(curr_keypoints)} ключевых точек до распределения")
 
+        # Фильтрация ключевых точек для равномерного распределения
+        filtered_keypoints = select_uniform_keypoints_by_grid(
+            curr_keypoints,
+            current_frame.shape[0],
+            current_frame.shape[1],
+            self.feature_extractor.grid_size,
+            self.feature_extractor.max_pts_per_cell
+        )
+        self.logger.info(f"После распределения осталось {len(filtered_keypoints)} точек")
+
+        descriptors = None
+        if filtered_keypoints:
+            # Вычисление дескрипторов для отфильтрованных ключевых точек
+            filtered_keypoints, descriptors = self.feature_extractor.extractor.compute(
+                cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY), 
+                filtered_keypoints
+            )
+            if descriptors is None:
+                self.logger.warning("Нет дескрипторов после фильтрации")
+        else:
+            self.logger.warning("Нет точек для дескрипторов после фильтрации")
+
+        # **Визуализация сопоставленных inliers**
+        if ref_keypoints is not None and ref_descriptors is not None and descriptors is not None:
+            # Сопоставление дескрипторов между предыдущим и текущим кадрами
+            good_matches, mask = self.feature_matcher.match_features(ref_descriptors, descriptors)
+            MAX_DISPLAY_MATCHES = 10  # Максимальное количество отображаемых совпадений
+
+            if good_matches and mask is not None:
+                # Разделение inliers и outliers на основе маски
+                inlier_matches = [m for m, msk in zip(good_matches, mask) if msk]
+                outlier_matches = [m for m, msk in zip(good_matches, mask) if not msk]
+
+                # Ограничение количества отображаемых совпадений
+                inlier_matches = inlier_matches[:MAX_DISPLAY_MATCHES]
+                outlier_matches = outlier_matches[:MAX_DISPLAY_MATCHES]
+
+                # Визуализация inliers
+                img_inliers = cv2.drawMatches(
+                    cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY), ref_keypoints,
+                    cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY), filtered_keypoints,
+                    inlier_matches, None,
+                    matchColor=(0, 255, 0),  # Зеленый цвет для inliers
+                    singlePointColor=(255, 0, 0),  # Красный для остальных
+                    flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
+                )
+
+                # Визуализация outliers
+                img_outliers = cv2.drawMatches(
+                    cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY), ref_keypoints,
+                    cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY), filtered_keypoints,
+                    outlier_matches, None,
+                    matchColor=(0, 0, 255),  # Красный цвет для outliers
+                    singlePointColor=(255, 0, 0),  # Красный для остальных
+                    flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
+                )
+
+                # Объединение изображений inliers и outliers для одновременного отображения
+                combined_matches = np.hstack((img_inliers, img_outliers))
+
+                # Отображение сопоставлений
+                cv2.imshow('Inliers и Outliers', combined_matches)
+                self.logger.info(f"Отображение inliers и outliers для кадра {frame_idx}. Нажмите любую клавишу для продолжения или ESC для выхода.")
+                key = cv2.waitKey(0)  # Ожидание нажатия клавиши
+
+                if key == 27:  # Если нажата клавиша ESC, завершить работу
+                    self.logger.info("Завершение работы по запросу пользователя.")
+                    cv2.destroyAllWindows()
+                    exit()
+
+        # Продолжение существующей обработки кадра
         if not initialization_completed:
             self.logger.info("[FP] Старт инициализации FP")
             # Если нет опорных ключевых точек – устанавливаем их
@@ -424,6 +499,7 @@ class FrameProcessor:
             return ref_keypoints, ref_descriptors, last_pose, map_points, initialization_completed
 
         else:
+            # Оценка текущей позы
             current_pose = self._estimate_pose(map_points, curr_keypoints, curr_descriptors, last_pose)
             if current_pose is None:
                 return None  # Позу не удалось восстановить
@@ -431,6 +507,7 @@ class FrameProcessor:
             poses.append(current_pose)
             last_pose = current_pose
 
+            # Проверка необходимости вставки нового кейфрейма
             if self._should_insert_keyframe(keyframes[-1][3], current_pose, frame_idx):
                 self._insert_keyframe(
                     frame_idx,
@@ -444,11 +521,16 @@ class FrameProcessor:
                 if len(keyframes) >= self.bundle_adjustment_frames:
                     self._run_local_ba(keyframes[-self.bundle_adjustment_frames:], map_points)
 
+            # Очистка локальной карты
             map_points = self._clean_local_map(map_points, current_pose)
 
+            # Обновление соединений после PnP
             self.odometry_calculator.update_connections_after_pnp(
                 map_points, curr_keypoints, curr_descriptors, frame_idx
             )
+
+            # Визуализация inliers при обработке неинициализированных кейфреймов
+            # (можно добавить дополнительную визуализацию здесь, если необходимо)
 
             ref_keypoints = curr_keypoints
             ref_descriptors = curr_descriptors
