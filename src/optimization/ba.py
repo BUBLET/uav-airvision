@@ -9,10 +9,10 @@ class BundleAdjustment:
     def __init__(
         self,
         camera_matrix: np.ndarray,
-        ftol: float = 1e-4,
-        xtol: float = 1e-4,
-        gtol: float = 1e-4,
-        max_nfev: int = 50  
+        ftol: float = 1e-3,
+        xtol: float = 1e-3,
+        gtol: float = 1e-3,
+        max_nfev: int = 100
     ):
         """
         Инициализирует объект BundleAdjustment.

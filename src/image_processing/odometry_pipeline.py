@@ -55,7 +55,10 @@ class OdometryPipeline:
 
         self.trajectory_writer.write_pose(initial_pose)
 
-    def process_frame(self, frame_idx: int, current_frame: np.ndarray):
+    def process_frame(
+        self, 
+        frame_idx: int, 
+        current_frame: np.ndarray):
         """
         Обрабатывает один кадр видео.
         """
@@ -82,12 +85,26 @@ class OdometryPipeline:
                 self.logger.warning(f"Сброс инициализации после {self.lost_threshold} потерянных кадров.")
                 self._reset()
             self.metrics_logger.info(f"[LOST] Frame {frame_idx}, lost_frames_count={self.lost_frames_count}")
+            return None  # Прекращаем дальнейшую обработку
+
+        # Если result не None, продолжаем обработку
+        ref_keypoints, ref_descriptors, relative_pose, self.map_points, self.initialization_completed = result
+
+        # Корректное обновление абсолютной позы
+        if len(self.poses) == 0:
+            # Первый кадр уже инициализирован, ничего не делаем
+            absolute_pose = relative_pose
         else:
-            self.lost_frames_count = 0
-            ref_keypoints, ref_descriptors, last_pose, self.map_points, self.initialization_completed = result
-            self.keyframes.append((frame_idx, ref_keypoints, ref_descriptors, last_pose))
-            self.poses.append(last_pose)
-            self.trajectory_writer.write_pose(last_pose)
+            last_absolute_pose = self.poses[-1]
+            relative_pose_hom = np.vstack((relative_pose, [0, 0, 0, 1]))
+            absolute_pose_hom = last_absolute_pose @ relative_pose_hom
+            absolute_pose = absolute_pose_hom[:3, :]
+
+        self.keyframes.append((frame_idx, ref_keypoints, ref_descriptors, absolute_pose))
+        self.poses.append(absolute_pose)
+        self.trajectory_writer.write_pose(absolute_pose)
+
+        return ref_keypoints, ref_descriptors, absolute_pose, self.map_points, self.initialization_completed
 
     def _reset(self):
         """

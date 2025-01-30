@@ -3,7 +3,7 @@ from unittest.mock import patch
 import itertools
 import numpy as np
 
-from src.image_processing.map_point import MapPoint
+from image_processing.map_point import MapPoint
 
 class TestMapPoint(unittest.TestCase):
     def setUp(self):

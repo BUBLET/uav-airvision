@@ -31,11 +31,11 @@ class FrameProcessor:
         self.homography_inlier_ratio = homography_inlier_ratio
         
     def _initialize_map(
-           self,
-           ref_keypoints: List[cv2.KeyPoint],
-           ref_descriptors: np.ndarray, 
-           curr_keypoints: List[cv2.KeyPoint],
-           curr_descriptors: np.ndarray 
+        self,
+        ref_keypoints: List[cv2.KeyPoint],
+        ref_descriptors: np.ndarray, 
+        curr_keypoints: List[cv2.KeyPoint],
+        curr_descriptors: np.ndarray 
     ):
         matches = self.feature_matcher.match_features(ref_descriptors, curr_descriptors)
         if len(matches) < 4:
@@ -54,7 +54,7 @@ class FrameProcessor:
         inliers_e = mask_e.ravel().sum() if mask_e is not None else 0
         inliers_h = mask_h.ravel().sum() if mask_h is not None else 0
         self.logger.info(f"[INIT] E_inliers={inliers_e}, E_error={error_E:.3f}; "
-                     f"H_inliers={inliers_h}, H_error={error_H:.3f}")
+                    f"H_inliers={inliers_h}, H_error={error_H:.3f}")
 
         total_error = error_E + error_H
         if total_error == 0:
@@ -67,12 +67,12 @@ class FrameProcessor:
 
         if use_homography:
             self.logger.info("Используем H для инициализации.")
-            R, t, mask_pose = self.odometry_calculator.decompose_homography(
+            R, t, mask_pose, num_inliers = self.odometry_calculator.decompose_homography(
                 H, ref_keypoints, curr_keypoints, matches
             )
         else:
             self.logger.info("Используем E для инициализации.")
-            R, t, mask_pose = self.odometry_calculator.decompose_essential(
+            R, t, mask_pose, num_inliers = self.odometry_calculator.decompose_essential(
                 E, ref_keypoints, curr_keypoints, matches
             )
 
@@ -80,17 +80,23 @@ class FrameProcessor:
             self.logger.warning("Не удалось восстановить позу из E/H.")
             return None
 
+        mask_e_flat = mask_e.ravel().astype(bool) if mask_e is not None else np.zeros(len(matches), dtype=bool)
+        mask_pose_flat = mask_pose.astype(bool) if mask_pose is not None else np.zeros(len(matches), dtype=bool)
+        mask_pose_full = np.zeros(len(matches), dtype=bool)
+        mask_pose_full[mask_e_flat] = mask_pose_flat[mask_e_flat]
+
+        self.logger.info(f"Количество инлайеров после маскировки: {np.sum(mask_pose_full)} из {len(matches)}")
+
         # Проверяем угол триангуляции
         median_angle = self.odometry_calculator.check_triangulation_angle(
-            R, t, ref_keypoints, curr_keypoints, matches, mask_pose
+            R, t, ref_keypoints, curr_keypoints, matches, mask_pose_full
         )
         self.logger.info(f"Медианный угол триангуляции: {np.rad2deg(median_angle):.2f}°")
         if median_angle < self.triangulation_threshold:
             self.logger.warning("Угол триангуляции ниже порога")
             return None
 
-        return R, t, matches, mask_pose
-        
+        return R, t, matches, mask_pose_full
     def _triangulate_initial_points(
         self,
         R: np.ndarray,
@@ -123,7 +129,7 @@ class FrameProcessor:
             ref_frame_idx,
             curr_frame_idx
         )
-        map_points = new_points  
+        map_points.extend(new_points)
         return map_points
         
     def _estimate_pose(

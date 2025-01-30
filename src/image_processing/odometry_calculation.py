@@ -265,41 +265,52 @@ class OdometryCalculator:
         return True
 
     def _recover_pose(
-            self,
-            E: np.ndarray,
-            src_pts: np.ndarray,
-            dst_pts: np.ndarray
-    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
-        """ Обертка для cv2.recoverPose """
-        
+        self,
+        E: np.ndarray,
+        src_pts: np.ndarray,
+        dst_pts: np.ndarray
+    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray], int]:
         retval, R, t, mask_pose = cv2.recoverPose(E, src_pts, dst_pts, self.camera_matrix)
         if retval < 1:
             self.logger.warning("recoverPose не смог восстановить достаточное число точек.")
-            return None, None, None
+            return None, None, None, 0
 
-        self.logger.info(f"E->R,t: inliers={mask_pose.sum()}/{len(mask_pose)}")
-        return R, t, mask_pose
+        t = -R.T @ t
+        mask_pose_flat = mask_pose.ravel()
+        inliers_count = int(np.sum(mask_pose_flat))
+        
+        if inliers_count > len(mask_pose_flat):
+            self.logger.error(f"Inliers count ({inliers_count}) превышает количество совпадений ({len(mask_pose_flat)}). Проверьте логику.")
+        
+        self.logger.info(f"E->R,t: inliers={inliers_count}/{len(mask_pose_flat)}")
+        self.logger.info(f"Mask_pose_flat: {mask_pose_flat}")
+
+        return R, t, mask_pose_flat, inliers_count
+
 
     def decompose_essential(
-            self,
-            E: np.ndarray,
-            prev_keypoints: List[cv2.KeyPoint],
-            curr_keypoints: List[cv2.KeyPoint],
-            matches: List[cv2.DMatch]
-        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        self,
+        E: np.ndarray,
+        prev_keypoints: List[cv2.KeyPoint],
+        curr_keypoints: List[cv2.KeyPoint],
+        matches: List[cv2.DMatch]
+    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray], int]:
         """
-        Декомпозирует Е с помощью recoverPose.
+        Декомпозирует E с помощью recoverPose.
 
-        Возвращает 
-        ----------
-        R, t, mask_pose
+        Возвращает:
+        - R (numpy.ndarray): Вращение.
+        - t (numpy.ndarray): Перемещение.
+        - mask_pose_flat (numpy.ndarray): Маска инлайеров.
+        - inliers_count (int): Количество инлайеров.
         """
         if not self._check_decompose_essential_inputs(E, matches):
-            return None, None, None
-        
+            return None, None, None, 0
+
         src_pts, dst_pts = self._extract_corresponding_points(prev_keypoints, curr_keypoints, matches)
-        
-        return self._recover_pose(E, src_pts, dst_pts)
+
+        R, t, mask_pose_flat, inliers_count = self._recover_pose(E, src_pts, dst_pts)
+        return R, t, mask_pose_flat, inliers_count
 
     def _check_homography_inputs(
         self,
@@ -509,10 +520,6 @@ class OdometryCalculator:
         matches: List[cv2.DMatch],
         mask_pose: np.ndarray
     ) -> Tuple[np.ndarray, List[cv2.DMatch]]:
-        """
-        Триангулирует 3D-точки, используя инлайерные соответствия из mask_pose.
-        Возвращает (pts3D, inlier_matches).
-        """
         inlier_matches = self._filter_inlier_matches(matches, mask_pose)
         if not inlier_matches:
             self.logger.warning("Нет соответствий для триангуляции.")
@@ -520,6 +527,7 @@ class OdometryCalculator:
 
         src_pts, dst_pts = self._extract_corresponding_points_for_inliers(prev_keypoints, curr_keypoints, inlier_matches)
         pts3D = self._triangulate(src_pts, dst_pts, R, t)
+        self.logger.info(f"Триангулировано {pts3D.shape[0]} точек.")
         return pts3D, inlier_matches
 
     def _find_fundamental_matrix(
@@ -627,7 +635,7 @@ class OdometryCalculator:
         """
         Возвращает (pts3D_valid, inlier_matches_valid) только для тех точек, где Z > 0.
         """
-        valid_mask = pts3D[:, 2] > 0
+        valid_mask = pts3D[:, 2] > 0.1
         pts3D_valid = pts3D[valid_mask]
         inlier_matches_valid = [m for m, v in zip(inlier_matches, valid_mask) if v]
         return pts3D_valid, inlier_matches_valid
@@ -721,7 +729,7 @@ class OdometryCalculator:
         x = proj_points[0, :]
         y = proj_points[1, :]
 
-        in_image = (x >= 0) & (x < self.image_width) & (y >= 0) & (y < self.image_height)
+        in_image = (x >= -50) & (x < self.image_width + 50) & (y >= -50) & (y < self.image_height + 50)
         x = x[in_image]
         y = y[in_image]
         final_map_points = [mp for mp, v in zip(filtered_points, in_image) if v]

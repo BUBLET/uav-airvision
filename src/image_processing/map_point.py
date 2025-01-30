@@ -10,9 +10,9 @@ class MapPoint:
     ):
         
         self.id = next(MapPoint._id_generator)
-        self.coordinates = coordinates  # 3D координаты точки
-        self.descriptors: List[np.ndarray] = []  # Список дескрипторов этой точки
-        self.observations: List[Tuple[int, int]] = []  # Список наблюдений в кадрах
+        self.coordinates = coordinates  
+        self.descriptors: List[np.ndarray] = []  
+        self.observations: List[Tuple[int, int]] = []  
         self.matched_times: int = 0
 
     def add_observation(self, frame_idx: int, keypoint_idx: int):
