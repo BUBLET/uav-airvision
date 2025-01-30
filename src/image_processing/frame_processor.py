@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import cv2
 from typing import List, Optional, Tuple
-from src.optimization.ba import BundleAdjustment
+from optimization.ba import BundleAdjustment
 
 class FrameProcessor:
     def __init__(
@@ -200,7 +200,6 @@ class FrameProcessor:
                 delta_rot > self.rotation_threshold or
                 frame_index % self.force_keyframe_interval == 0)
 
-
     def _insert_keyframe(
         self,
         frame_idx: int,
@@ -364,6 +363,23 @@ class FrameProcessor:
         if len(curr_keypoints) == 0:
             self.logger.warning("Не удалось извлечь фичи. Пропускаем кадр.")
             return None
+        
+        frame_with_keypoints = cv2.drawKeypoints(
+            current_frame, 
+            curr_keypoints, 
+            None, 
+            color=(0, 255, 0), 
+            flags=cv2.DrawMatchesFlags_DEFAULT
+        )
+        cv2.imshow('Ключевые Точки', frame_with_keypoints)
+        self.logger.info(f"Отображение ключевых точек для кадра {frame_idx}. Нажмите любую клавишу для продолжения или ESC для выхода.")
+        key = cv2.waitKey(0) 
+
+        if key == 27:  
+            self.logger.info("Завершение работы по запросу пользователя.")
+            cv2.destroyAllWindows()
+            exit()
+
 
         if not initialization_completed:
             self.logger.info("[FP] Старт инициализации FP")
