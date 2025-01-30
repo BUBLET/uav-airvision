@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import cv2
 from typing import List, Optional, Tuple
-from src.optimization.ba import BundleAdjustment
+from optimization.ba import BundleAdjustment
 
 class FrameProcessor:
     def __init__(
