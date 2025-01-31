@@ -276,12 +276,13 @@ class OdometryCalculator:
             return None, None, None, 0
 
         t = -R.T @ t
-        mask_pose_flat = mask_pose.ravel()
+        # Приводим маску к булевому виду: для каждого элемента, если значение > 0, получаем True (1), иначе False (0)
+        mask_pose_flat = (mask_pose > 0).ravel()
         inliers_count = int(np.sum(mask_pose_flat))
-        
+
         if inliers_count > len(mask_pose_flat):
             self.logger.error(f"Inliers count ({inliers_count}) превышает количество совпадений ({len(mask_pose_flat)}). Проверьте логику.")
-        
+
         self.logger.info(f"E->R,t: inliers={inliers_count}/{len(mask_pose_flat)}")
         self.logger.info(f"Mask_pose_flat: {mask_pose_flat}")
 
