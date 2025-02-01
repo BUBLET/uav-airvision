@@ -46,7 +46,7 @@ def parse_trajectory_file(file_path):
 def main():
     # Пути к файлам
     gt_file = os.path.join("results", "cam_traj_truth.txt")
-    est_file = os.path.join("results", "estimated_traj.txt")
+    est_file = os.path.join("trajectory.txt")
 
     # Считываем
     gt_positions, _ = parse_trajectory_file(gt_file)

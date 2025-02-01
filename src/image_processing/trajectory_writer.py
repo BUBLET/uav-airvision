@@ -7,24 +7,16 @@ class TrajectoryWriter:
         self.file = self._initialize_file()
 
     def _initialize_file(self):
-        """
-        Очищает файл траектории и открывает его для записи.
-        """
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
         return open(self.output_path, 'w')
 
-    def write_pose(self, pose: np.ndarray):
-        """
-        Записывает текущую позу камеры в файл траектории.
-        """
-        x, y, z = pose[:3, 3]
-        R_flat = pose[:3, :3].flatten()
-        fout_line = f"{x} {y} {z} " + " ".join(map(str, R_flat)) + "\n"
-        self.file.write(fout_line)
+    def write_pose(self, t: np.ndarray, R: np.ndarray):
+        t = t.flatten()
+        R = R.flatten('F')
+        pose = np.hstack((t, R))
+        line = ' '.join(f'{num:.6f}' for num in pose)
+        self.file.write(line + '\n')
 
     def close(self):
-        """
-        Закрывает файл траектории.
-        """
         if not self.file.closed:
             self.file.close()
