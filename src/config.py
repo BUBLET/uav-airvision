@@ -26,10 +26,8 @@ SCORE_TYPE: int = cv2.ORB_HARRIS_SCORE
 PATCH_SIZE: int = 31
 FAST_THRESHOLD: int = 10
 
-# Параметры для RANSAC в Essential
 E_RANSAC_THRESHOLD: float = 1.0
 
-# Параметры для optical flow (используются в lk_params)
 LK_WIN_SIZE = (21, 21)
 LK_MAX_COUNT = 30
 LK_CRITERIA = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01)
