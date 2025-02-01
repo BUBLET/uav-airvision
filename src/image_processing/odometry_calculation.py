@@ -31,7 +31,8 @@ class OdometryCalculator:
         return pts, pts
 
     def calculate_essential_matrix(self, pts1: np.ndarray, pts2: np.ndarray) -> Optional[Tuple[np.ndarray, np.ndarray, float]]:
-        E, mask = cv2.findEssentialMat(pts2, pts1, self.camera_matrix, method=cv2.RANSAC, prob=0.999, threshold=self.E_RANSAC_THRESHOLD)
+        E, mask = cv2.findEssentialMat(pts1, pts2, self.camera_matrix,
+                                        method=cv2.RANSAC, prob=0.999, threshold=self.E_RANSAC_THRESHOLD)
         if E is None:
             self.logger.warning("Не удалось вычислить Essential")
             return None
@@ -40,8 +41,10 @@ class OdometryCalculator:
         self.logger.info(f"[E] Inliers = {inliers_count}")
         return E, mask, error
 
+
     def _recover_pose(self, E: np.ndarray, pts1: np.ndarray, pts2: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray], int]:
-        retval, R, t, mask_pose = cv2.recoverPose(E, pts2, pts1, self.camera_matrix)
+
+        retval, R, t, mask_pose = cv2.recoverPose(E, pts1, pts2, self.camera_matrix)
         if retval < 1:
             self.logger.warning("recoverPose не смог восстановить достаточное число точек.")
             return None, None, None, 0

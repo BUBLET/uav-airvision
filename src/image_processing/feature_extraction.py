@@ -33,8 +33,6 @@ class FeatureExtractor:
     def __init__(
             self,
             extractor: Any = None,
-            grid_size: int = 16,
-            max_pts_per_cell: int = 2,
             nfeatures: int = 8000,
             scaleFactor: float = 1.2,
             nlevels: int = 8,
@@ -45,8 +43,7 @@ class FeatureExtractor:
             patchSize: int = 31,
             fastThreshold: int = 10
     ):
-        self.grid_size = grid_size
-        self.max_pts_per_cell = max_pts_per_cell
+
         if extractor is None:
             self.extractor = cv2.ORB_create(
                 nfeatures=nfeatures,
@@ -78,12 +75,9 @@ class FeatureExtractor:
             raise ValueError("Неподдерживаемый формат изображения.")
         keypoints = self.extractor.detect(image_gray, None)
         logger.info(f"Обнаружено {len(keypoints)} точек до распределения")
-        filtered_keypoints = select_uniform_keypoints_by_grid(
-            keypoints, image_gray.shape[0], image_gray.shape[1],
-            self.grid_size, self.max_pts_per_cell
-        )
-        logger.info(f"После распределения осталось {len(filtered_keypoints)} точек")
-        keypoints, descriptors = self.extractor.compute(image_gray, filtered_keypoints)
+    
+        keypoints, descriptors = self.extractor.compute(image_gray, keypoints)
         if descriptors is None:
             logger.warning("Нет дескрипторов после фильтрации")
         return keypoints, descriptors
+

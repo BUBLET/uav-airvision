@@ -41,8 +41,6 @@ def configure_logging() -> Tuple[logging.Logger, logging.Logger]:
 def initialize_components(frame_width: int, frame_height: int) -> Tuple[FeatureExtractor, OdometryCalculator, FrameProcessor]:
     # Инициализируем FeatureExtractor
     feature_extractor = FeatureExtractor(
-        grid_size=config.KPTS_UNIFORM_SELECTION_GRID_SIZE,
-        max_pts_per_cell=config.MAX_PTS_PER_GRID,
         nfeatures=config.N_FEATURES,
         scaleFactor=config.INIT_SCALE,
         nlevels=8,
