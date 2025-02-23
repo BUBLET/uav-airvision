@@ -9,7 +9,6 @@ class FrameProcessor:
         self.feature_extractor = feature_extractor
         self.odometry_calculator = odometry_calculator
         self.lk_params = lk_params
-        # В простом варианте мы будем отслеживать точки optical flow
         self.prev_gray = None
         self.prev_pts = None
 
@@ -47,7 +46,7 @@ class FrameProcessor:
             good_next_pts = next_pts[status == 1]
 
         
-        if len(good_prev_pts) < 5:
+        if len(good_prev_pts) < 3:
             self.logger.warning("Недостаточно точек для расчета позы.")
             keypoints, _ = self.feature_extractor.extract_features(current_frame)
             if not keypoints:
@@ -57,7 +56,6 @@ class FrameProcessor:
             self.prev_gray = current_gray
             return current_gray, self.prev_pts, (np.eye(3), np.zeros((3, 1)))
         
-        # Передаем аргументы в том же порядке, что и в исходном коде: (точки текущего кадра, точки предыдущего кадра)
         E, mask, error = self.odometry_calculator.calculate_essential_matrix(good_next_pts.reshape(-1, 2),
                                                                             good_prev_pts.reshape(-1, 2))
         if E is None:
