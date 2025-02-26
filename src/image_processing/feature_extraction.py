@@ -11,7 +11,7 @@ class FeatureExtractor:
     def __init__(
             self,
             extractor: Any = None,
-            grid_size: int = 16,
+            grid_size: int = 24,
             max_pts_per_cell: int = 2,
             nfeatures: int = 8000,
             scaleFactor: float = 1.2,
@@ -52,26 +52,26 @@ class FeatureExtractor:
             self.extractor = extractor
             logger.info("FeatureExtractor инициализирован с пользовательским детектором.")
 
-    def adapt_threshold(self, image_gray: np.ndarray):
-        avg_intensity = float(np.mean(image_gray))
-        desired_intensity = 128.0
-        factor = desired_intensity / (avg_intensity + 1e-5)
-        new_threshold = int(self.fastThreshold * factor)
-        new_threshold = max(5, min(new_threshold, 50))
-        if new_threshold != self.fastThreshold:
-            logger.info(f"Изменение fastThreshold: {self.fastThreshold} -> {new_threshold} (средняя яркость = {avg_intensity:.2f})")
-            self.fastThreshold = new_threshold
-            self.extractor = cv2.ORB_create(
-                nfeatures=self.nfeatures,
-                scaleFactor=self.scaleFactor,
-                nlevels=self.nlevels,
-                edgeThreshold=self.edgeThreshold,
-                firstLevel=self.firstLevel,
-                WTA_K=self.WTA_K,
-                scoreType=self.scoreType,
-                patchSize=self.patchSize,
-                fastThreshold=self.fastThreshold
-            )
+    def bucket_keypoints(self, keypoints: List[cv2.KeyPoint], image_shape: Tuple[int, int]) -> List[cv2.KeyPoint]:
+            buckets = {}
+            height, width = image_shape  #
+            for kp in keypoints:
+                x, y = int(kp.pt[0]), int(kp.pt[1])
+                
+                if x < 0 or x >= width or y < 0 or y >= height:
+                    continue
+                bucket_idx = (x // self.grid_size, y // self.grid_size)
+                if bucket_idx not in buckets:
+                    buckets[bucket_idx] = []
+                buckets[bucket_idx].append(kp)
+            
+            selected_keypoints = []
+            for bucket in buckets.values():
+                # Сортировка точек в ячейке по значению отклика
+                bucket_sorted = sorted(bucket, key=lambda kp: kp.response, reverse=True)
+                selected_keypoints.extend(bucket_sorted[:self.max_pts_per_cell])
+            return selected_keypoints
+
 
     def extract_features(self, image: np.ndarray) -> Tuple[List[cv2.KeyPoint], Optional[np.ndarray]]:
         if image is None or not hasattr(image, 'shape'):
@@ -85,14 +85,17 @@ class FeatureExtractor:
             image_gray = image
         else:
             raise ValueError("Неподдерживаемый формат изображения.")
+        
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        image_preprocessed = clahe.apply(image_gray)
 
-
-        self.adapt_threshold(image_gray)
-
-        keypoints = self.extractor.detect(image_gray, None)
+        keypoints = self.extractor.detect(image_preprocessed, None)
         logger.info(f"Обнаружено {len(keypoints)} точек до распределения")
-    
-        keypoints, descriptors = self.extractor.compute(image_gray, keypoints)
+
+        keypoints = self.bucket_keypoints(keypoints, image_preprocessed.shape[:2])
+        logger.info(f"Осталось {len(keypoints)} точек после распределения")
+
+        keypoints, descriptors = self.extractor.compute(image_preprocessed, keypoints)
         if descriptors is None:
             logger.warning("Нет дескрипторов после фильтрации")
         return keypoints, descriptors

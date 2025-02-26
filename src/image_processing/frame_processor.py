@@ -30,6 +30,18 @@ class FrameProcessor:
         status = status.reshape(-1)
         good_prev_pts = self.prev_pts[status == 1]
         good_next_pts = next_pts[status == 1]
+
+        # Двусторонняя проверка
+        prev_pts_back, status_back, _ = cv2.calcOpticalFlowPyrLK(current_gray, self.prev_gray, good_next_pts, None, **self.lk_params)
+        status_back = status_back.reshape(-1)
+
+        fb_error = np.linalg.norm(good_prev_pts.reshape(-1, 2) - prev_pts_back.reshape(-1, 2), axis=1)
+        # ПОРОГ ОШИБКИ (УТОЧНИТЬ)
+        fb_thresh = 0.5
+
+        fb_mask = fb_error < fb_thresh
+        good_prev_pts = good_prev_pts[fb_mask]
+        good_next_pts = good_next_pts[fb_mask]
         
         # Если точек недостаточно (<50), повторно детектируем особенности (как в исходном коде)
         if len(good_prev_pts) < 50:
