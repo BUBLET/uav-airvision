@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from typing import Tuple, List, Optional, Any
 import logging
+import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -12,8 +13,8 @@ class FeatureExtractor:
             self,
             extractor: Any = None,
             grid_size: int = 24,
-            max_pts_per_cell: int = 2,
-            nfeatures: int = 8000,
+            max_pts_per_cell = config.MAX_PTS_PER_CELL,
+            nfeatures = config.N_FEATURES,
             scaleFactor: float = 1.2,
             nlevels: int = 8,
             edgeThreshold: int = 15,
@@ -21,7 +22,7 @@ class FeatureExtractor:
             WTA_K: int = 2,
             scoreType: int = cv2.ORB_HARRIS_SCORE,
             patchSize: int = 31,
-            fastThreshold: int = 10
+            fastThreshold = config.FAST_THRESHOLD
     ):
         self.grid_size = grid_size
         self.max_pts_per_cell = max_pts_per_cell

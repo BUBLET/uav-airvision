@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import os
 from typing import Tuple, List, Optional
+import config
 
 from .feature_extraction import FeatureExtractor
 from .odometry_calculation import OdometryCalculator
@@ -19,7 +20,7 @@ class OdometryPipeline:
                  frame_processor: FrameProcessor,
                  logger: logging.Logger,
                  trajectory_writer: TrajectoryWriter,
-                 window_size: int = 15):  # колво кадров в окне
+                 window_size = config.WINDOW_SIZE):  # колво кадров в окне
         self.feature_extractor = feature_extractor
         self.odometry_calculator = odometry_calculator
         self.frame_processor = frame_processor
@@ -61,26 +62,34 @@ class OdometryPipeline:
         return R_inv, t_inv
 
     def relative_error(self, x: np.ndarray) -> np.ndarray:
-        # функция ошибки для оптимизации окна
         N = len(self.window_poses)
-        poses = [self.window_poses[0]]  # первую позу оставляем как есть
+        poses = [self.window_poses[0]]
         for i in range(1, N):
             xi = x[(i - 1) * 6 : i * 6]
             poses.append(self.vector_to_pose(xi))
+        
         errors = []
         for i in range(N - 1):
             inv_pose = self.invert_pose(poses[i])
             pred_pose = self.compose_poses(inv_pose, poses[i + 1])
             R_pred, t_pred = pred_pose
             R_meas, t_meas = self.window_relatives[i]
-            rot_error = R.from_matrix(R_meas.T @ R_pred).as_rotvec()
-            trans_error = (t_pred - t_meas).flatten()
-            errors.extend(rot_error.tolist())
-            errors.extend(trans_error.tolist())
+            errors.extend(R.from_matrix(R_meas.T @ R_pred).as_rotvec().tolist())
+            errors.extend((t_pred - t_meas).flatten().tolist())
+        
+        lambda_reg = config.LAMBDA_REG  # коэффициент регуляризации, подбирается экспериментально
+        for i in range(1, N - 1):
+            pose_prev = self.pose_to_vector(*poses[i - 1])
+            pose_curr = self.pose_to_vector(*poses[i])
+            pose_next = self.pose_to_vector(*poses[i + 1])
+            # Вторая разность
+            second_diff = (pose_next - pose_curr) - (pose_curr - pose_prev)
+            errors.extend((lambda_reg * second_diff).tolist())
+        
         return np.array(errors)
 
+
     def optimize_window(self):
-        # оптимизируем окно по least_squares
         N = len(self.window_poses)
         if N < 2:
             return
@@ -89,15 +98,16 @@ class OdometryPipeline:
             x0.append(self.pose_to_vector(*self.window_poses[i]))
         x0 = np.concatenate(x0)
         self.logger.info("Оптимизирую окно с {} кадрами".format(N))
-        res = least_squares(self.relative_error, x0, verbose=1, xtol=1e-4, ftol=1e-4)
+        res = least_squares(self.relative_error, x0, verbose=1, xtol=1e-2, ftol=1e-2, loss='huber', f_scale=1.0)
         x_opt = res.x
-        new_window_poses = [self.window_poses[0]]  # первая остается фиксированной
+        new_window_poses = [self.window_poses[0]]  # первая поза фиксирована
         for i in range(1, N):
             xi = x_opt[(i - 1) * 6 : i * 6]
             new_window_poses.append(self.vector_to_pose(xi))
         self.window_poses = new_window_poses
         self.R_total, self.t_total = self.window_poses[-1]
-        self.logger.info("Окно оптимизировано итераций {}".format(res.nfev))
+        self.logger.info("Окно оптимизировано за {} итераций".format(res.nfev))
+
 
     def run(self, video_path: str):
         cap = cv2.VideoCapture(video_path)
