@@ -8,3 +8,4 @@ generate_structure.py
 src/optim_opt.py
 optuna_study.log
 .coverage
+structure.md
