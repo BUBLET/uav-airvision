@@ -34,3 +34,7 @@ LK_CRITERIA = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01)
 LAMBDA_REG = 0.09
 MAX_PTS_PER_CELL = 2
 WINDOW_SIZE = 14
+
+VO_FPS = 20.0             # частота кадров VO
+IMU_ACCEL_NOISE = 0.1     # подберите опытным путём
+VO_NOISE = 0.05           # шум VO в единицах скорости

@@ -154,6 +154,7 @@ def main():
         feature_extractor,
         odometry_calculator,
         frame_processor,
+        imu_sync,
         logger,
         trajectory_writer
     )
@@ -167,7 +168,7 @@ def main():
         return
     _, init_pts, _ = init_res
     pipeline.window_poses.append((pipeline.R_total.copy(), pipeline.t_total.copy()))
-    trajectory_writer.write_pose(pipeline.t_total, pipeline.R_total)
+    trajectory_writer.write_pose(first_ts, pipeline.t_total, pipeline.R_total)
 
     frame_idx = 1
     while True:
@@ -203,7 +204,7 @@ def main():
             pipeline.window_relatives = []
 
         logger.info(f"Кадр {frame_idx}: t_total={pipeline.t_total.flatten()}")
-        trajectory_writer.write_pose(pipeline.t_total, pipeline.R_total)
+        trajectory_writer.write_pose(ts, pipeline.t_total, pipeline.R_total)
 
     loader.release()
     trajectory_writer.close()
