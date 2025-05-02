@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from typing import Tuple
+from .utils import quat_mul, quat_to_rotmat, normalize_quat
+import config
 
 class IMUSynchronizer:
     """
@@ -83,3 +85,39 @@ class IMUSynchronizer:
             gyro  = gyro  - self.gyro_bias
             accel = accel - self.accel_bias
         return gyro, accel
+    
+    def preintegrate(self, t0: float, t1: float,
+                     q0: np.ndarray = np.array([1.,0.,0.,0],dtype=np.float64),
+                     v0: np.ndarray = np.zeros(3),
+                     p0: np.ndarray = np.zeros(3)
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Simple on‐the‐fly preintegration (ignores noise/cov).
+        Returns (q, v, p) at t1 in world frame, given initial
+        orientation q0 (w,x,y,z), velocity v0, position p0.
+        """
+        times, gyros, accels = self.get_window(t0, t1)
+        q = q0.copy()
+        v = v0.copy()
+        p = p0.copy()
+
+        for i in range(len(times)-1):
+            dt = times[i+1] - times[i]
+            ω = gyros[i]      # bias‐compensated
+            α = accels[i]     # bias‐compensated
+
+            # --- orientation update (quaternion) ---
+            θ = np.linalg.norm(ω) * dt
+            if θ > 1e-8:
+                axis = ω / np.linalg.norm(ω)
+                dq = np.concatenate(([np.cos(θ/2)], np.sin(θ/2)*axis))
+                q = normalize_quat(quat_mul(q, dq))
+
+            # --- rotation body→world ---
+            Rwb = quat_to_rotmat(q)
+
+            # --- velocity & position ---
+            v = v + (Rwb @ α + config.GRAVITY) * dt
+            p = p + v*dt + 0.5*(Rwb @ α + config.GRAVITY)*(dt**2)
+
+        return q, v, p

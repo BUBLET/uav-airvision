@@ -5,6 +5,8 @@ import numpy as np
 import yaml
 import os
 
+GRAVITY = np.array([0., 0., -9.81], dtype=np.float64)
+
 # --- thresholds for FrameProcessor ---
 MIN_INLIERS     = 5
 FB_ERROR_THRESH = 1.0

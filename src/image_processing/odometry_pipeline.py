@@ -2,22 +2,21 @@
 
 import logging
 import numpy as np
-from typing import Tuple, List
+from typing import List, Tuple
 
 import config
 from .feature_extraction import FeatureExtractor
 from .odometry_calculation import OdometryCalculator
 from .frame_processor import FrameProcessor
 from .trajectory_writer import TrajectoryWriter
-from .kalman_filter import VIOFilter
 from .imu_synchronizer import IMUSynchronizer
-from scipy.optimize import least_squares
-from scipy.spatial.transform import Rotation as R
+from .utils import quat_to_rotmat, normalize_quat, quat_mul
+from scipy.spatial.transform import Rotation as R_s
 
 
 class OdometryPipeline:
     """
-    VO + IMU fusion with extrinsics T_BS applied.
+    Гибридный VIO: дискретная IMU-предынтеграция + коррекция по Visual Odometry.
     """
 
     def __init__(
@@ -37,145 +36,102 @@ class OdometryPipeline:
         self.imu    = imu_synchronizer
         self.logger = logger
         self.writer = trajectory_writer
-        self.window_size = window_size
 
-        # extrinsics
+        # экструзия body→sensor и обратная
         self.T_BS = T_BS
-        self.R_BS = self.T_BS[:3,:3]    # body→sensor
-        self.R_SB = self.R_BS.T         # sensor→body
+        self.R_BS = self.T_BS[:3, :3]
+        self.R_SB = self.R_BS.T
 
-        # sliding window
-        self.window_poses     : List[Tuple[np.ndarray,np.ndarray]] = []
-        self.window_relatives : List[Tuple[np.ndarray,np.ndarray]] = []
-
-        # global pose
+        # глобальная ориентация и позиция
         self.R_total = np.eye(3)
         self.t_total = np.zeros((3,1))
 
-        # EKF
-        self.dt = 1.0 / config.VO_FPS
-        self.vio = VIOFilter(dt=self.dt,
-                             accel_noise=config.IMU_ACCEL_NOISE,
-                             vo_noise=config.VO_NOISE)
-        self.logger.info(f"VIOFilter init dt={self.dt}")
+        self.logger.info("OdometryPipeline ready: IMU предынтеграция + VO")
 
-    def pose_to_vector(self, Rmat, tvec):
-        rot = R.from_matrix(Rmat).as_rotvec()
-        return np.concatenate((rot, tvec.flatten()))
-
-    def vector_to_pose(self, x):
-        rot = x[:3]
-        t   = x[3:].reshape(3,1)
-        Rm  = R.from_rotvec(rot).as_matrix()
-        return Rm, t
-
-    def optimize_window(self):
-        N = len(self.window_poses)
-        if N < 2: return
-        x0 = np.concatenate([self.pose_to_vector(*self.window_poses[i])
-                             for i in range(1,N)])
-        self.logger.info(f"BA window size={N}")
-        res = least_squares(self._residual, x0, verbose=0,
-                            xtol=1e-2, ftol=1e-2,
-                            loss='huber', f_scale=1.0)
-        # unpack...
-        xopt = res.x
-        new = [self.window_poses[0]]
-        for i in range(1,N):
-            xi = xopt[(i-1)*6:i*6]
-            new.append(self.vector_to_pose(xi))
-        self.window_poses = new
-        self.R_total, self.t_total = self.window_poses[-1]
-
-    def _residual(self, x):
-        # omitted for brevity—unchanged from before
-        return np.zeros(0)
 
     def run(self, loader):
-        # --- 1) read first frame + timestamp ---
+        # 1) читаем первый кадр
         first = loader.read_next()
         if first is None:
             self.logger.error("Empty data source")
             return
         frame, prev_ts = first
 
-        # --- 2) IMU bias calibration over a short static period ---
+        # 2) калибровка смещений IMU
         if self.imu is not None:
-            # collect first 2s of IMU to estimate biases
             self.imu.calibrate_bias(static_duration=2.0)
             self.logger.info(
                 f"Calibrated IMU biases: gyro={self.imu.gyro_bias}, accel={self.imu.accel_bias}"
             )
 
-        # --- 3) Gravity alignment for initial R_total ---
+        # 3) выравнивание начальной ориентации по гравитации
         if self.imu is not None:
-            # measured gravity direction in body frame
-            g_meas = (self.imu.accel_bias + np.array([0., 0., -9.81]))
+            g_meas = (self.imu.accel_bias + np.array([0.,0.,-9.81]))
             g_meas /= np.linalg.norm(g_meas)
-            # want to rotate that to [0,0,-1]
-            v1 = g_meas
-            v2 = np.array([0., 0., -1.])
+            v1, v2 = g_meas, np.array([0.,0.,-1.])
             axis = np.cross(v1, v2)
             if np.linalg.norm(axis) < 1e-6:
                 self.R_total = np.eye(3)
             else:
-                axis  /= np.linalg.norm(axis)
+                axis /= np.linalg.norm(axis)
                 angle = np.arccos(np.clip(v1.dot(v2), -1.0, 1.0))
-                self.R_total = R.from_rotvec(axis * angle).as_matrix()
+                self.R_total = R_s.from_rotvec(axis * angle).as_matrix()
             self.logger.info(f"Initial orientation aligned to gravity:\n{self.R_total}")
 
-        # --- 4) write initial pose & push into sliding window ---
+        # 4) пишем начальную позу
         self.writer.write_pose(prev_ts, self.t_total, self.R_total)
-        self.window_poses.append((self.R_total.copy(), self.t_total.copy()))
 
-        # now continue exactly as before:
+        # 5) инициализируем предынтегратор
+        rot0    = R_s.from_matrix(self.R_total)
+        q_scipy = rot0.as_quat()  # формат [x,y,z,w]
+        # переведём в [w,x,y,z]
+        q_total = np.array([q_scipy[3], q_scipy[0], q_scipy[1], q_scipy[2]], dtype=float)
+        v_total = np.zeros(3)
+        p_total = self.t_total.flatten()
+
         idx = 1
         while True:
             item = loader.read_next()
             if item is None:
-                self.logger.info("done")
+                self.logger.info("Pipeline finished.")
                 break
             frame, ts = item
             idx += 1
 
-            # IMU predict
-            times, _, accels = self.imu.get_window(prev_ts, ts)
-            for i in range(len(times)-1):
-                dti = times[i+1] - times[i]
-                self.vio.set_dt(dti)
-                self.vio.predict(accels[i])
+            # 6) IMU-предынтеграция на отрезке prev_ts→ts
+            if self.imu is not None:
+                q_total, v_total, p_total = self.imu.preintegrate(
+                    prev_ts, ts,
+                    q0=q_total,
+                    v0=v_total,
+                    p0=p_total
+                )
+                self.R_total = quat_to_rotmat(q_total)
+                self.t_total = p_total.reshape(3,1)
 
-            # VO
+            # 7) Visual Odometry — коррекция от FrameProcessor
             res = self.fp.process_frame(frame)
-            if res is None:
-                self.logger.warning(f"frame {idx} skipped")
-                prev_ts = ts
-                continue
-            _, _, (R_cam, t_cam) = res
+            if res is not None:
+                _, _, (R_cam, t_cam) = res
+                # переводим из камеры в тело
+                R_body = self.R_SB @ R_cam @ self.R_BS
+                t_body = self.R_SB @ t_cam
 
-            # 1) transform cam→body
-            R_body = self.R_SB @ R_cam @ self.R_BS
-            t_body = self.R_SB @ t_cam
+                # корректируем глобальную позу
+                self.R_total = R_body @ self.R_total
+                self.t_total = self.t_total + self.R_total @ t_body
 
-            # 2) EKF‐update w/ body‐frame Δ‐translation
-            self.vio.update(t_body)
+                # синхронизируем интегратор
+                rot_corr = R_s.from_matrix(self.R_total)
+                qc = rot_corr.as_quat()
+                q_total = np.array([qc[3], qc[0], qc[1], qc[2]], dtype=float)
+                p_total = self.t_total.flatten()
+                # скорость тоже повернём (примерно)
+                v_total = R_body @ v_total
 
-            # 3) read back
-            pos, _ = self.vio.get_state()
-            self.t_total = pos
-            self.R_total = R_body @ self.R_total
-
-            # 4) window
-            self.window_relatives.append((R_body.copy(), t_body.copy()))
-            self.window_poses.append((self.R_total.copy(), self.t_total.copy()))
-            if len(self.window_poses) > self.window_size:
-                self.optimize_window()
-                self.window_poses     = [(self.R_total.copy(), self.t_total.copy())]
-                self.window_relatives = []
-
-            self.logger.info(f"Frame {idx}: t={self.t_total.ravel()}")
+            # 8) записываем результат
+            self.logger.info(f"Frame {idx}: position = {self.t_total.flatten()}")
             self.writer.write_pose(ts, self.t_total, self.R_total)
             prev_ts = ts
 
         self.writer.close()
-        self.logger.info("finished")
