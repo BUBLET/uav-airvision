@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-FRAMES_FOLDER = ""
+FRAMES_FOLDER = "datasets/traj1"
 VIDEO_PATH: str = "datasets/output.mp4"
 
 FX: float = 615.0
