@@ -1,62 +1,52 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import procrustes
+import os
 
 class TrajectoryVisualizer:
     def __init__(self, gt_csv: str, est_txt: str):
-        # GT
-        data_gt = np.loadtxt(gt_csv, delimiter=',', skiprows=1)
-        gt = data_gt[:, 1:4]  # x,y,z
-        # Est
-        data_est = np.loadtxt(est_txt, delimiter=',', skiprows=1)
-        est = data_est[:, 1:4]
+        # gt_csv: mav0/state_groundtruth_estimate0/data.csv (timestamp, x,y,z, qx,qy,qz,qw)
+        data = np.loadtxt(gt_csv, delimiter=',', skiprows=1)
+        self.gt = data[:, 1:4]  # x,y,z
 
-        # Обрезаем до одинаковой длинны
-        n = min(len(gt), len(est))
-        gt = gt[:n]
-        est = est[:n]
+        # est_txt: results/estimated_traj.txt (t_x, t_y, t_z, then R flattened)
+        est = np.loadtxt(est_txt, delimiter=',', skiprows=1)
+        self.est = est[:, 1:4]    # первые три колонки
 
-        # Сдвигаем так, чтобы обе начинались в начале координат
-        self.gt = gt - gt[0]
-        self.est = est - est[0]
+        if len(self.est) != len(self.gt):
+            n = min(len(self.est), len(self.gt))
+            self.est = self.est[:n]
+            self.gt = self.gt[:n]
 
     def compute_ate(self):
-        m1, m2, _ = procrustes(self.gt, self.est)
-        errors = np.linalg.norm(m1 - m2, axis=1)
-        rms = np.sqrt((errors**2).mean())
-        return errors, rms
+        # выравнивание Procrustes
+        mtx1, mtx2, disparity = procrustes(self.gt, self.est)
+        errors = np.linalg.norm(mtx1 - mtx2, axis=1)
+        return errors, 1000 * np.sqrt((errors**2).mean())  # в мм
 
     def plot_3d(self, ax=None):
         if ax is None:
-            fig = plt.figure(figsize=(6,6))
-            ax = fig.add_subplot(111, projection='3d')
-
+            _, ax = plt.subplots(subplot_kw={'projection':'3d'})
         ax.plot(self.gt[:,0], self.gt[:,1], self.gt[:,2], label='GT')
         ax.plot(self.est[:,0], self.est[:,1], self.est[:,2], label='Est')
-
-        # Устанавливаем равный масштаб по всем осям
-        all_pts = np.vstack((self.gt, self.est))
-        max_range = (all_pts.max(axis=0) - all_pts.min(axis=0)).max() / 2.0
-        mid = (all_pts.max(axis=0) + all_pts.min(axis=0)) / 2.0
-        ax.set_xlim(mid[0]-max_range, mid[0]+max_range)
-        ax.set_ylim(mid[1]-max_range, mid[1]+max_range)
-        ax.set_zlim(mid[2]-max_range, mid[2]+max_range)
-
-        ax.set_xlabel('X (m)')
-        ax.set_ylabel('Y (m)')
-        ax.set_zlabel('Z (m)')
+        ax.set_xlabel('X'); ax.set_ylabel('Y'); ax.set_zlabel('Z')
         ax.legend()
+        return ax
 
     def plot_errors(self):
-        errors, rms = self.compute_ate()
-        plt.figure(figsize=(6,3))
+        errors, ate = self.compute_ate()
+        plt.figure()
         plt.plot(errors)
-        plt.title(f'ATE per frame (RMS = {rms:.4f} m)')
-        plt.xlabel('Frame index')
+        plt.title(f'ATE per frame (RMS = {ate:.2f} mm)')
+        plt.xlabel('Frame idx')
         plt.ylabel('Error (m)')
+        return errors
 
     def show_all(self):
-        self.plot_3d()
+        fig = plt.figure(figsize=(12,5))
+        ax = fig.add_subplot(121, projection='3d')
+        self.plot_3d(ax)
+        plt.subplot(122)
         self.plot_errors()
         plt.tight_layout()
         plt.show()
