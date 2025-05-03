@@ -111,7 +111,9 @@ class OdometryPipeline:
 
             # 7) Visual Odometry — коррекция от FrameProcessor
             res = self.fp.process_frame(frame)
-            if res is not None:
+            if res is None:
+                self.logger.warning(f"Frame {idx}: VO lost, pure IMU predict")
+            else:
                 _, _, (R_cam, t_cam) = res
                 # переводим из камеры в тело
                 R_body = self.R_SB @ R_cam @ self.R_BS
@@ -126,7 +128,6 @@ class OdometryPipeline:
                 qc = rot_corr.as_quat()
                 q_total = np.array([qc[3], qc[0], qc[1], qc[2]], dtype=float)
                 p_total = self.t_total.flatten()
-                # скорость тоже повернём (примерно)
                 v_total = R_body @ v_total
 
             # 8) записываем результат

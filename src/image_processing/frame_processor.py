@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import cv2
 import numpy as np
@@ -26,14 +26,19 @@ class FrameProcessor:
 
         # 1) First frame: detect features
         if self.prev_gray is None:
-            kps, _ = self.feature_extractor.extract_features(current_frame)
-            if not kps:
-                self.logger.warning("No keypoints on first frame.")
+            pts = cv2.goodFeaturesToTrack(
+                current_gray,
+                maxCorners=config.N_FEATURES,
+                qualityLevel=config.SHI_QUALITY,
+                minDistance=config.SHI_MIN_DIST,
+                blockSize=config.SHI_BLOCK_SIZE
+            )
+            if pts is None:
+                self.logger.warning("SHI-TOMASI no corners first frame")
                 return None
             self.prev_gray = current_gray
-            self.prev_pts  = np.array([kp.pt for kp in kps], dtype=np.float32).reshape(-1,1,2)
+            self.prev_pts = pts
             return current_gray, self.prev_pts, (np.eye(3), np.zeros((3,1)))
-
         # 2) Track via LK
         next_pts, status, _ = cv2.calcOpticalFlowPyrLK(
             self.prev_gray, current_gray, self.prev_pts, None, **self.lk_params
@@ -53,12 +58,18 @@ class FrameProcessor:
 
         # 4) Re‐detect if too few
         if len(prev_good) < config.MIN_TRACKED:
-            self.logger.warning(f"Only {len(prev_good)} tracks < {config.MIN_TRACKED}, re‐detect.")
-            kps, _ = self.feature_extractor.extract_features(self.prev_gray)
-            if not kps:
-                self.logger.warning("Re‐detection failed.")
+            self.logger.warning(f"Only {len(prev_good)} tracks < {config.MIN_TRACKED}, re‐detect via SHI-TOMASI.")
+            pts = cv2.goodFeaturesToTrack(
+                current_gray,
+                maxCorners=config.N_FEATURES,
+                qualityLevel=config.SHI_QUALITY,
+                minDistance=config.SHI_MIN_DIST,
+                blockSize=config.SHI_BLOCK_SIZE
+            )
+            if pts is None:
+                self.logger.warning("Shi-Tomasi re-detection failed.")
                 return None
-            self.prev_pts = np.array([kp.pt for kp in kps], dtype=np.float32).reshape(-1,1,2)
+            self.prev_pts = pts            
             next_pts, status, _ = cv2.calcOpticalFlowPyrLK(
                 self.prev_gray, current_gray, self.prev_pts, None, **self.lk_params
             )
@@ -76,6 +87,18 @@ class FrameProcessor:
         # 6) Compute camera‐frame Δ‐pose
         pts1 = next_good.reshape(-1,2)
         pts2 = prev_good.reshape(-1,2)
+
+        F, maskF = cv2.findFundamentalMat(
+            pts1, pts2,
+            method=cv2.FM_RANSAC,
+            ransacReprojThreshold=config.RANSAC_THRESHOLD,
+            confidence=0.99
+        )
+        if maskF is not None:
+            m = maskF.ravel().astype(bool)
+            pts1 = pts1[m]
+            pts2 = pts2[m]
+            
         R_cam, t_cam, inliers = self.odometry_calculator.decompose_essential(pts1, pts2)
         if R_cam is None or t_cam is None or inliers < config.MIN_INLIERS:
             self.logger.warning(f"recoverPose failed ({inliers}<{config.MIN_INLIERS}).")
