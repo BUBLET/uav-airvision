@@ -1,23 +1,31 @@
 import logging
-from typing import Optional, Tuple, List
-
 import cv2
 import numpy as np
-
 import config
-
+from typing import Optional, Tuple, List
+from .utils import quat_to_rotmat, normalize_quat
+from .imu_synchronizer import IMUSynchronizer
 
 class FrameProcessor:
-    def __init__(self, feature_extractor, odometry_calculator, lk_params: dict):
+    def __init__(self, 
+                 feature_extractor, 
+                 odometry_calculator, 
+                 lk_params: dict,
+                 imu_synchronizer: IMUSynchronizer):
         self.logger = logging.getLogger(__name__)
         self.feature_extractor = feature_extractor
         self.odometry_calculator = odometry_calculator
         self.lk_params = lk_params
         self.prev_gray: Optional[np.ndarray] = None
         self.prev_pts: Optional[np.ndarray] = None
+        self.prev_ts: Optional[float] = None
+        self.imu = imu_synchronizer
 
     def process_frame(
-        self, current_frame: np.ndarray
+        self, 
+        current_frame: np.ndarray,
+        ts_prev: float,
+        ts_curr: float
     ) -> Optional[Tuple[np.ndarray, np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
         """
         Returns (current_gray, tracked_pts, (R_cam, t_cam)), or None on failure.
@@ -40,13 +48,40 @@ class FrameProcessor:
             self.prev_pts = pts
             return current_gray, self.prev_pts, (np.eye(3), np.zeros((3,1)))
         # 2) Track via LK
-        next_pts, status, _ = cv2.calcOpticalFlowPyrLK(
-            self.prev_gray, current_gray, self.prev_pts, None, **self.lk_params
-        )
-        status = status.ravel().astype(bool)
-        prev_good = self.prev_pts[status]
-        next_good = next_pts[status]
+        gyro0, _ = self.imu.get_measurements_for_frame(ts_prev)
+        gyro1, _ = self.imu.get_measurements_for_frame(ts_curr)
+        omega = 0.5 * (gyro0 + gyro1)
+        dt = ts_curr - ts_prev
+        theta = np.linalg.norm(omega) * dt
+        if theta > 1e-6:
+            axis = omega / np.linalg.norm(omega)
+            dq = np.concatenate(([np.cos(theta/2)], np.sin(theta/2)*axis))
+            R_pred = quat_to_rotmat(dq)
+            h, w = self.prev_gray.shape
+            cx, cy = w/2, h/2
+            pts = self.prev_pts.reshape(-1,2)
+            pts_c = pts - [cx, cy]
+            pts_rot = (R_pred[:2,:2] @ pts_c.T).T + [cx, cy]
+            init_guess = pts_rot.reshape(-1,1,2).astype(np.float32)
+        else:
+            init_guess = None
 
+        pts_prev = self.prev_pts.astype(np.float32).copy()
+        if init_guess is not None:
+            init_guess = init_guess.astype(np.float32).copy()
+        
+        next_pts, status, _ = cv2.calcOpticalFlowPyrLK(
+            self.prev_gray,
+            current_gray,
+            pts_prev,
+            init_guess,
+            **self.lk_params
+        )
+
+        status = status.ravel().astype(bool)
+        prev_good = pts_prev[status]
+        next_good = next_pts[status]
+        
         # 3) Forward‐backward check
         back_pts, back_status, _ = cv2.calcOpticalFlowPyrLK(
             current_gray, self.prev_gray, next_good, None, **self.lk_params
@@ -109,4 +144,5 @@ class FrameProcessor:
         # 7) Success
         self.prev_gray = current_gray
         self.prev_pts  = next_good.reshape(-1,1,2)
+        self.prev_ts = ts_curr
         return current_gray, self.prev_pts, (R_cam, t_cam)

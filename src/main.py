@@ -48,7 +48,7 @@ def configure_logging() -> Tuple[logging.Logger, logging.Logger]:
     return logger, metrics
 
 
-def initialize_components(w: int, h: int):
+def initialize_components(w: int, h: int, imu):
     fe = FeatureExtractor(
         nfeatures=config.N_FEATURES,
         scaleFactor=config.INIT_SCALE,
@@ -66,7 +66,7 @@ def initialize_components(w: int, h: int):
         camera_matrix=config.CAMERA_MATRIX
     )
     lk = dict(winSize=config.LK_WIN_SIZE, criteria=config.LK_CRITERIA)
-    fp = FrameProcessor(fe, odom, lk)
+    fp = FrameProcessor(fe, odom, lk, imu_synchronizer=imu)
     return fe, odom, fp
 
 
@@ -132,7 +132,7 @@ def main():
         logger.info(f"IMU @ {imu_csv}")
 
     h,w = get_frame_dimensions(args.source_type,data_path)
-    fe, odom, fp = initialize_components(w,h)
+    fe, odom, fp = initialize_components(w, h, imu)
 
     writer   = TrajectoryWriter("results/estimated_traj.txt")
     pipeline = OdometryPipeline(

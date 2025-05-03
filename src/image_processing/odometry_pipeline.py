@@ -12,6 +12,7 @@ from .trajectory_writer import TrajectoryWriter
 from .imu_synchronizer import IMUSynchronizer
 from .utils import quat_to_rotmat, normalize_quat, quat_mul
 from scipy.spatial.transform import Rotation as R_s
+from .kalman_filter import VIOFilter
 
 
 class OdometryPipeline:
@@ -37,6 +38,8 @@ class OdometryPipeline:
         self.logger = logger
         self.writer = trajectory_writer
 
+        self.window_size = window_size
+
         # экструзия body→sensor и обратная
         self.T_BS = T_BS
         self.R_BS = self.T_BS[:3, :3]
@@ -45,6 +48,12 @@ class OdometryPipeline:
         # глобальная ориентация и позиция
         self.R_total = np.eye(3)
         self.t_total = np.zeros((3,1))
+
+        dt = 1.0 / config.VO_FPS
+        self.filter = VIOFilter(
+            dt=dt, window_size=window_size,
+            accel_noise=config.IMU_ACCEL_NOISE,
+            vo_noise=config.VO_NOISE)
 
         self.logger.info("OdometryPipeline ready: IMU предынтеграция + VO")
 
@@ -109,12 +118,24 @@ class OdometryPipeline:
                 self.R_total = quat_to_rotmat(q_total)
                 self.t_total = p_total.reshape(3,1)
 
+                _, _, accels = self.imu.get_window(prev_ts, ts)
+                if len(accels) > 0:
+                    accel_mean = np.mean(accels, axis=0)
+                    self.filter.predict(accel_mean)
+
             # 7) Visual Odometry — коррекция от FrameProcessor
-            res = self.fp.process_frame(frame)
+            res = self.fp.process_frame(frame, prev_ts, ts)
             if res is None:
                 self.logger.warning(f"Frame {idx}: VO lost, pure IMU predict")
             else:
                 _, _, (R_cam, t_cam) = res
+
+                z = []
+                for i in range(self.window_size):
+                    z.append(t_cam.flatten())
+                z = np.concatenate(z)    
+                self.filter.update(z)
+
                 # переводим из камеры в тело
                 R_body = self.R_SB @ R_cam @ self.R_BS
                 t_body = self.R_SB @ t_cam
