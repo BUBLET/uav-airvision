@@ -12,3 +12,4 @@ combined_code_work.txt
 /work
 *.png
 *.npz
+**/__pycache__/
