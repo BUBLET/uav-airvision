@@ -69,27 +69,27 @@ if USE_DATASET_CALIB:
         # keep fallbacks
 
 # --------------- ORB / KLT / VIO parameters ----------------
-N_FEATURES       = 13000
+N_FEATURES       = 15000
 INIT_SCALE       = 1.2
 WTA_K            = 2
 SCORE_TYPE       = cv2.ORB_HARRIS_SCORE
 PATCH_SIZE       = 31
 FAST_THRESHOLD   = 17
 
-E_RANSAC_THRESHOLD = 0.7
+E_RANSAC_THRESHOLD = 1.0
 
 LK_WIN_SIZE      = (21,21)
 LK_CRITERIA      = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01)
 
 LAMBDA_REG       = 0.09
-MAX_PTS_PER_CELL = 2
+MAX_PTS_PER_CELL = 3
 WINDOW_SIZE      = 14
 
-VO_FPS           = 20.0
-IMU_ACCEL_NOISE  = 0.1
-VO_NOISE         = 0.05
+VO_FPS           = 30.0
+IMU_ACCEL_NOISE  = 0.05
+VO_NOISE         = 0.03
 
-SHI_QUALITY = 0.01
+SHI_QUALITY = 0.03
 SHI_MIN_DIST = 7
 SHI_BLOCK_SIZE = 7
 
