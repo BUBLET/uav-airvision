@@ -8,6 +8,7 @@ generate_structure.py
 src/optim_opt.py
 optuna_study.log
 .coverage
-structure.md
 combined_code_work.txt
 /work
+*.png
+*.npz

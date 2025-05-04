@@ -1,5 +1,3 @@
-# src/image_processing/constants.py
-
 import numpy as np
 
 STAGE_FIRST_FRAME   = 0

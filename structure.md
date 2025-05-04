@@ -1,0 +1,30 @@
+# Структура проекта: D:\Мисис\Диплом\AirVision
+
+- **./**
+    - README.md
+    - requirements.txt
+- **results/**
+    - **MH_01_easy_results/**
+    - **npz/**
+        - MH_01_easy_results.npz
+- **src/**
+    - config.py
+    - gen_results.py
+    - main.py
+    - __init__.py
+    - **image_processing/**
+        - camera.py
+        - constants.py
+        - dataset_loader.py
+        - frame_processor.py
+        - imu_preprocess.py
+        - odometry_pipeline.py
+        - tracker.py
+        - utils.py
+        - visualizer.py
+        - visual_odometry.py
+        - __init__.py
+    - **utils/**
+        - build.py
+        - io.py
+        - __init__.py

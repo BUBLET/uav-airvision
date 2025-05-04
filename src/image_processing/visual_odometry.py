@@ -91,7 +91,7 @@ class VisualOdometry:
         self.px_ref, self.px_cur = self.tracker.track(
             self.last_frame, self.new_frame, self.px_ref
         )
-        self._pose_estimation(scale=1.0)
+        self._pose_estimation(scale=1.0, threshold=0.1)
         self.frame_stage = STAGE_DEFAULT_FRAME
 
     def process_default(self, idx):
@@ -104,12 +104,13 @@ class VisualOdometry:
         if len(self.px_ref) < self.min_feat:
             self.px_ref = self.tracker.detect(self.new_frame)
 
-    def _pose_estimation(self, scale, idx=None):
+    def _pose_estimation(self, scale, idx=None, threshold=None):
+        thr = threshold if threshold is not None else self.ess_thresh
         E, _ = cv2.findEssentialMat(
             self.px_cur, self.px_ref,
             focal=self.focal, pp=self.pp,
             method=cv2.RANSAC, prob=self.ess_prob,
-            threshold=self.ess_thresh
+            threshold=thr
         )
         _, R, t, _ = cv2.recoverPose(
             E, self.px_cur, self.px_ref,

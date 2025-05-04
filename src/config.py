@@ -1,6 +1,7 @@
 # config.py
 
 from pathlib import Path
+import yaml
 
 # Пути
 DATASET_PATH = Path("datasets/MH_01_easy/mav0/")
@@ -10,16 +11,56 @@ OUTPUT_TRAJ = {
     "yz": Path("map_yz.png"),
 }
 
+# Путь к sensor.yaml
+SENSOR_YAML = DATASET_PATH / "cam0" / "sensor.yaml"
+
+def load_camera_params(yaml_path: Path):
+    with open(yaml_path, "r") as f:
+        data = yaml.safe_load(f)
+
+    # Разбор T_BS
+    tb = data["T_BS"]["data"]
+    # записано в строку row-major, cols=4, rows=4
+    T_BS = [tb[i*4:(i+1)*4] for i in range(4)]
+
+    # Интринсики
+    fu, fv, cu, cv = data["intrinsics"]
+    dist = data.get("distortion_coefficients", [])
+    if len(dist) == 4:
+        # radial-tangential: k1, k2, p1, p2
+        k1, k2, p1, p2 = dist
+        k3 = 0.0
+    elif len(dist) == 5:
+        k1, k2, p1, p2, k3 = dist
+    else:
+        k1 = k2 = p1 = p2 = k3 = 0.0
+
+    # Разрешение
+    width, height = data["resolution"]
+
+    return {
+        "T_BS": T_BS,
+        "width": width,
+        "height": height,
+        "fx": fu,
+        "fy": fv,
+        "cx": cu,
+        "cy": cv,
+        "dist": {"k1": k1, "k2": k2, "p1": p1, "p2": p2, "k3": k3},
+    }
+
+# Загружаем параметры один раз
+_cam = load_camera_params(SENSOR_YAML)
+
 # Камера
 CAM_PARAMS = {
-    "width": 752,
-    "height": 480,
-    "fx": 458.654,
-    "fy": 457.296,
-    "cx": 367.215,
-    "cy": 248.375,
-    "dist": {"k1": -0.28340811, "k2": 0.07395907,
-             "p1": 0.00019359, "p2": 1.76187114e-05, "k3": 0.0}
+    "width":  _cam["width"],
+    "height": _cam["height"],
+    "fx":      _cam["fx"],
+    "fy":      _cam["fy"],
+    "cx":      _cam["cx"],
+    "cy":      _cam["cy"],
+    "dist":    _cam["dist"],
 }
 
 # Visual Odometry
@@ -30,12 +71,7 @@ VO_PARAMS = {
     "ess_threshold": 0.7,
     "ess_prob": 0.999,
     "clamp_deg": 5.0,
-    "T_BS": [
-        [ 0.01517066, -0.99983694,  0.00979558, -0.01638528],
-        [ 0.99965712,  0.01537559,  0.02119505, -0.06812726],
-        [-0.02134221,  0.00947067,  0.99972737,  0.00395795],
-        [ 0.0,          0.0,         0.0,         1.0        ]
-    ]
+    "T_BS": _cam["T_BS"],
 }
 
 # Preprocessing
