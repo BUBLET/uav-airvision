@@ -3,6 +3,7 @@ import pandas as pd
 import cv2
 from .constants import STAGE_FIRST_FRAME, STAGE_SECOND_FRAME, STAGE_DEFAULT_FRAME
 from .tracker import FeatureTracker
+from .scale_kalman import ScaleKalmanFilter
 from .utils import rotation_matrix_to_euler, euler_to_rotation_matrix, clamp_euler
 from config import VO_PARAMS
 
@@ -13,6 +14,7 @@ class VisualOdometry:
         self.gt_data  = gt_data.reset_index(drop=True)
         self.cam_data = cam_data.reset_index(drop=True)
         self.tracker = FeatureTracker()
+        self.scale_kf = ScaleKalmanFilter()
 
         # инициализация состояния из первого GT
         first = self.gt_data.iloc[0]
@@ -55,31 +57,39 @@ class VisualOdometry:
             return R
 
     def getAbsoluteScale(self, frame_id):
-            if frame_id < 1:
-                return 0
-            curr_timestamp = self.cam_data.iloc[frame_id]['#timestamp [ns]']
-            prev_timestamp = self.cam_data.iloc[frame_id - 1]['#timestamp [ns]']
-            
-            curr_gt = self.gt_data[self.gt_data['#timestamp [ns]'] == curr_timestamp]
-            prev_gt = self.gt_data[self.gt_data['#timestamp [ns]'] == prev_timestamp]
 
-            if len(curr_gt) == 0 or len(prev_gt) == 0:
-                return 0
-            
-            curr_gt = curr_gt.iloc[0]
-            prev_gt = prev_gt.iloc[0]
+        if frame_id < 1:
+            return 0.0
 
-            x_prev = prev_gt[' p_RS_R_x [m]']
-            y_prev = prev_gt[' p_RS_R_y [m]']
-            z_prev = prev_gt[' p_RS_R_z [m]']
-            
-            x = curr_gt[' p_RS_R_x [m]']
-            y = curr_gt[' p_RS_R_y [m]']
-            z = curr_gt[' p_RS_R_z [m]']
+        curr_ts = int(self.cam_data.iloc[frame_id]['#timestamp [ns]'])
+        prev_ts = int(self.cam_data.iloc[frame_id - 1]['#timestamp [ns]'])
 
-            self.trueX, self.trueY, self.trueZ = x, y, z
-            scale = np.sqrt((x - x_prev)**2 + (y - y_prev)**2 + (z - z_prev)**2)
-            return scale
+        curr_row = self.gt_data[self.gt_data['#timestamp [ns]'] == curr_ts]
+        prev_row = self.gt_data[self.gt_data['#timestamp [ns]'] == prev_ts]
+        if curr_row.empty or prev_row.empty:
+            return 0.0
+
+        curr = curr_row.iloc[0]
+        prev = prev_row.iloc[0]
+
+        x, y, z       = curr[' p_RS_R_x [m]'], curr[' p_RS_R_y [m]'], curr[' p_RS_R_z [m]']
+        x_prev, y_prev, z_prev = prev[' p_RS_R_x [m]'], prev[' p_RS_R_y [m]'], prev[' p_RS_R_z [m]']
+
+        self.trueX, self.trueY, self.trueZ = x, y, z
+
+        raw_scale = float(np.sqrt((x - x_prev)**2 +
+                                (y - y_prev)**2 +
+                                (z - z_prev)**2))
+
+        dt = (curr_ts - prev_ts) * 1e-9
+
+        self.scale_kf.predict(dt)
+        self.scale_kf.correct(raw_scale)
+
+        # Возвращаем сглаженный масштаб
+        return self.scale_kf.scale
+
+
 
     def process_first(self):
         self.px_ref = self.tracker.detect(self.new_frame)

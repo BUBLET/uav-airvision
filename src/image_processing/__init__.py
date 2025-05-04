@@ -8,3 +8,4 @@ from .tracker import *
 from .utils import *
 from .visual_odometry import VisualOdometry
 from .visualizer import *
+from .scale_kalman import *

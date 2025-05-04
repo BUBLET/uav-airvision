@@ -53,9 +53,9 @@ CAM_PARAMS = {
 }
 
 VO_PARAMS = {
-    "min_features": 2500,
+    "min_features": 3000,
     "lk_win": (5, 5),
-    "lk_criteria": (30, 0.01),
+    "lk_criteria": (40, 0.01),
     "ess_threshold": 0.7,
     "ess_prob": 0.999,
     "clamp_deg": 5.0,

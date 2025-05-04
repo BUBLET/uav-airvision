@@ -15,6 +15,24 @@ class TrajectoryVisualizer:
             'xz': np.zeros((self.size, self.size, 3), dtype=np.uint8),
             'yz': np.zeros((self.size, self.size, 3), dtype=np.uint8),
         }
+        cv2.putText(self.traj['xy'], "X-Y plane",
+                    (10, 25),           # координаты
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,                # размер шрифта
+                    (255, 255, 255),    # цвет (белый)
+                    2)                  # толщина
+        cv2.putText(self.traj['xz'], "X-Z plane",
+                    (10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (255, 255, 255),
+                    2)
+        cv2.putText(self.traj['yz'], "Y-Z plane",
+                    (10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (255, 255, 255),
+                    2)
         self.init_pos = None
 
     def update(self, t, true_vals):
