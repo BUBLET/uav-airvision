@@ -1,8 +1,7 @@
 import cv2
 import numpy as np
 from pathlib import Path
-
-from config import DATASET_PATH, OUTPUT_TRAJ
+from config import DATASET_PATH
 from image_processing.frame_processor import FrameProcessor
 
 class OdometryPipeline:
@@ -15,9 +14,9 @@ class OdometryPipeline:
     ):
         """
         :param cam_df: DataFrame с метками времени кадров
-        :param processor: экземпляр FrameProcessor
-        :param viz_show_func: функция отображения кадра (viz.show)
-        :param viz_save_func: функция сохранения траектории (viz.save)
+        :param processor: FrameProcessor
+        :param viz_show_func:
+        :param viz_save_func:
         """
         self.cam_df = cam_df
         self.processor = processor
@@ -49,8 +48,6 @@ class OdometryPipeline:
             if not self.show(frame):
                 break
 
-        # сохранение
-        #self.save(OUTPUT_TRAJ)
         cv2.destroyAllWindows()
 
         return (

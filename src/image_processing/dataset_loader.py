@@ -1,5 +1,6 @@
-import pandas as pd
 import cv2
+import pandas as pd
+import numpy as np
 from pathlib import Path
 from typing import Tuple, Iterator
 from config import DATASET_PATH
@@ -7,9 +8,9 @@ from config import DATASET_PATH
 class EurocLoader:
     """
     Загрузчик датасета EuRoC MAV:
-      - imu_df: DataFrame с IMU (включая ground-truth)
-      - cam_df: DataFrame с метками времени камеры
-      - iter_frames(): генератор кортежей (timestamp_ns, image)
+      - imu_df: DataFrame
+      - cam_df: DataFrame
+      - iter_frames()
     """
     def __init__(self, dataset_path: str = DATASET_PATH, cam_topic: str = 'cam0', imu_topic: str = 'imu0'):
         self.dataset_path = Path(dataset_path)
@@ -34,10 +35,10 @@ class EurocLoader:
 
     def iter_frames(self) -> Iterator[Tuple[int, 'np.ndarray']]:
         """
-        Итерирует по всем кадрам:
+        По всем кадрам:
         Yields:
-            ts (int): timestamp в наносекундах
-            img (np.ndarray): изображение в градациях серого
+            ts (int)
+            img (np.ndarray)
         """
         if self.cam_df is None:
             self.load_cam()

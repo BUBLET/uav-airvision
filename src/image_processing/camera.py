@@ -5,18 +5,19 @@ from config import CAM_PARAMS
 class PinholeCamera:
     def __init__(self, width, height, fx, fy, cx, cy,
                  k1=0.0, k2=0.0, p1=0.0, p2=0.0, k3=0.0):
+        # grab dem cam specs
         self.width = width
         self.height = height
-        self.fx = fx
-        self.fy = fy
-        self.cx = cx
-        self.cy = cy
+        self.fx = fx      # focal length x
+        self.fy = fy      # focal length y
+        self.cx = cx      # optical center x
+        self.cy = cy      # optical center y
         self.d = [k1, k2, p1, p2, k3]
         self.distortion = any(abs(p) > 1e-7 for p in self.d)
 
     @classmethod
     def from_config(cls):
-        """Создаёт камеру из CAM_PARAMS."""
+        """Make a camera from CAM_PARAMS dict."""
         dist = CAM_PARAMS.get('dist', {})
         return cls(
             width=CAM_PARAMS['width'],

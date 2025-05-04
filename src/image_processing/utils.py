@@ -1,5 +1,3 @@
-# src/image_processing/utils.py
-
 import numpy as np
 import cv2
 

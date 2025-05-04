@@ -4,5 +4,7 @@ opencv-contrib-python
 matplotlib
 scipy
 logging
-python-orb-slam3
 typing
+pandas
+pyyaml
+

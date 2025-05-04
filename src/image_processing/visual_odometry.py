@@ -1,5 +1,3 @@
-# src/image_processing/visual_odometry.py
-
 import numpy as np
 import pandas as pd
 import cv2

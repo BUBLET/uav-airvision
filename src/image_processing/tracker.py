@@ -1,16 +1,12 @@
-# src/image_processing/tracker.py
-
 import cv2
 import numpy as np
 from config import VO_PARAMS
 
 class FeatureTracker:
     def __init__(self):
-        # FAST
         self.detector = cv2.FastFeatureDetector_create(
             threshold=25, nonmaxSuppression=True
         )
-        # Lucas–Kanade
         self.lk_params = {
             "winSize": VO_PARAMS["lk_win"],
             "criteria": (

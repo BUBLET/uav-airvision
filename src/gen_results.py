@@ -1,4 +1,3 @@
-# gen_results.py
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,9 +6,8 @@ def generate_results(
     npz_file: str = "vo_results.npz",
     base_output_dir: str = "results"
 ):
-    # Имя датасета — основа имени файла без расширения
+
     dataset_name = os.path.splitext(os.path.basename(npz_file))[0]
-    # Папка results/<dataset_name>/
     output_dir = os.path.join(base_output_dir, dataset_name)
     os.makedirs(output_dir, exist_ok=True)
 
@@ -26,7 +24,6 @@ def generate_results(
     titles_e = ['Roll (deg)', 'Pitch (deg)', 'Yaw (deg)']
     titles_v = ['Vx (m/s)',    'Vy (m/s)',    'Vz (m/s)']
 
-    # 1. Euler & Velocity
     fig, axs = plt.subplots(2, 3, figsize=(18, 10))
     for i in range(3):
         ax = axs[0, i]
@@ -52,7 +49,6 @@ def generate_results(
     plt.savefig(out1, dpi=300)
     plt.close(fig)
 
-    # 2. Path error
     diff_gt = np.linalg.norm(gt_p[1:]  - gt_p[:-1],  axis=1)
     diff_vo = np.linalg.norm(pred_p[1:] - pred_p[:-1], axis=1)
     cum_gt  = np.concatenate([[0], np.cumsum(diff_gt)])

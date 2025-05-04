@@ -17,17 +17,14 @@ def preprocess_imu(dataset_path: Path, cam_to_imu_timeshift_s: float) -> None:
     imu_df = pd.read_csv(imu_csv)
     gt_df  = pd.read_csv(gt_csv)
 
-    # Сдвиг времени GT на IMU
     ts_col = '#timestamp' if '#timestamp' in gt_df.columns else gt_df.columns[0]
     shift_ns = int(cam_to_imu_timeshift_s * 1e9)
     gt_df[ts_col] += shift_ns
 
-    # Переименование и индексация
     gt_df = gt_df.rename(columns={ts_col: '#timestamp [ns]'})
     gt_df.set_index('#timestamp [ns]', inplace=True)
     gt_df.sort_index(inplace=True)
 
-    # Интерполяция числовых колонок GT на таймстемпы IMU
     for col in gt_df.select_dtypes(include=[np.number]).columns:
         imu_df[col] = np.interp(
             imu_df['#timestamp [ns]'],
@@ -35,6 +32,5 @@ def preprocess_imu(dataset_path: Path, cam_to_imu_timeshift_s: float) -> None:
             gt_df[col].values
         )
 
-    # Сохранение результата
     out = dataset_path / 'imu0' / 'imu_with_interpolated_groundtruth.csv'
     imu_df.to_csv(out, index=False)

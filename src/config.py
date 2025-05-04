@@ -1,9 +1,6 @@
-# config.py
-
 from pathlib import Path
 import yaml
 
-# Пути
 DATASET_PATH = Path("datasets/MH_01_easy/mav0/")
 OUTPUT_TRAJ = {
     "xy": Path("map_xy.png"),
@@ -11,23 +8,18 @@ OUTPUT_TRAJ = {
     "yz": Path("map_yz.png"),
 }
 
-# Путь к sensor.yaml
 SENSOR_YAML = DATASET_PATH / "cam0" / "sensor.yaml"
 
 def load_camera_params(yaml_path: Path):
     with open(yaml_path, "r") as f:
         data = yaml.safe_load(f)
 
-    # Разбор T_BS
     tb = data["T_BS"]["data"]
-    # записано в строку row-major, cols=4, rows=4
     T_BS = [tb[i*4:(i+1)*4] for i in range(4)]
 
-    # Интринсики
     fu, fv, cu, cv = data["intrinsics"]
     dist = data.get("distortion_coefficients", [])
     if len(dist) == 4:
-        # radial-tangential: k1, k2, p1, p2
         k1, k2, p1, p2 = dist
         k3 = 0.0
     elif len(dist) == 5:
@@ -35,7 +27,6 @@ def load_camera_params(yaml_path: Path):
     else:
         k1 = k2 = p1 = p2 = k3 = 0.0
 
-    # Разрешение
     width, height = data["resolution"]
 
     return {
@@ -49,10 +40,8 @@ def load_camera_params(yaml_path: Path):
         "dist": {"k1": k1, "k2": k2, "p1": p1, "p2": p2, "k3": k3},
     }
 
-# Загружаем параметры один раз
 _cam = load_camera_params(SENSOR_YAML)
 
-# Камера
 CAM_PARAMS = {
     "width":  _cam["width"],
     "height": _cam["height"],
@@ -63,7 +52,6 @@ CAM_PARAMS = {
     "dist":    _cam["dist"],
 }
 
-# Visual Odometry
 VO_PARAMS = {
     "min_features": 2500,
     "lk_win": (5, 5),
@@ -74,5 +62,4 @@ VO_PARAMS = {
     "T_BS": _cam["T_BS"],
 }
 
-# Preprocessing
 IMU_TIMESHIFT_S = 5.63799926987e-05
