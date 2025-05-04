@@ -13,3 +13,4 @@ combined_code_work.txt
 *.png
 *.npz
 __pycache__/
+.coveragearc
