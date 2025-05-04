@@ -1,28 +1,54 @@
+# src/image_processing/utils.py
+
 import numpy as np
+import cv2
 
-def quat_mul(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
-    """
-    Hamilton product of two quaternions q = [w, x, y, z].
-    """
-    w1, x1, y1, z1 = q1
-    w2, x2, y2, z2 = q2
-    w = w1*w2 - x1*x2 - y1*y2 - z1*z2
-    x = w1*x2 + x1*w2 + y1*z2 - z1*y2
-    y = w1*y2 - x1*z2 + y1*w2 + z1*x2
-    z = w1*z2 + x1*y2 - y1*x2 + z1*w2
-    return np.array([w, x, y, z], dtype=np.float64)
+def feature_tracking(img_ref, img_cur, pts_ref, lk_params):
+    kp2, st, _ = cv2.calcOpticalFlowPyrLK(
+        img_ref, img_cur, pts_ref, None, **lk_params
+    )
+    st = st.ravel() == 1
+    return pts_ref[st], kp2[st]
 
-def quat_to_rotmat(q: np.ndarray) -> np.ndarray:
-    """
-    Convert quaternion [w, x, y, z] to 3×3 rotation matrix.
-    """
-    w, x, y, z = q
-    R = np.array([
-        [1-2*(y*y+z*z),   2*(x*y - z*w), 2*(x*z + y*w)],
-        [2*(x*y + z*w), 1-2*(x*x+z*z),   2*(y*z - x*w)],
-        [2*(x*z - y*w),   2*(y*z + x*w), 1-2*(x*x+y*y)]
-    ], dtype=np.float64)
-    return R
+def rotation_matrix_to_euler(R):
+    sy = np.hypot(R[0,0], R[1,0])
+    singular = sy < 1e-6
+    if not singular:
+        roll  = np.arctan2(R[2,1], R[2,2])
+        pitch = np.arctan2(-R[2,0], sy)
+        yaw   = np.arctan2(R[1,0], R[0,0])
+    else:
+        roll  = np.arctan2(-R[1,2], R[1,1])
+        pitch = np.arctan2(-R[2,0], sy)
+        yaw   = 0
+    return np.array([roll, pitch, yaw], dtype=float)
 
-def normalize_quat(q: np.ndarray) -> np.ndarray:
-    return q / np.linalg.norm(q)
+def euler_to_rotation_matrix(e):
+    roll, pitch, yaw = e
+    Rz = np.array([
+        [ np.cos(yaw), -np.sin(yaw), 0],
+        [ np.sin(yaw),  np.cos(yaw), 0],
+        [          0,            0, 1]
+    ])
+    Ry = np.array([
+        [ np.cos(pitch), 0, np.sin(pitch)],
+        [             0, 1,            0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+    Rx = np.array([
+        [1,           0,            0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll),  np.cos(roll)]
+    ])
+    return Rz @ Ry @ Rx
+
+def clamp_euler(old, new, max_deg):
+    max_rad = np.deg2rad(max_deg)
+    diff = (new - old + np.pi) % (2*np.pi) - np.pi
+    clamped = old.copy()
+    for i in range(3):
+        if abs(diff[i]) <= max_rad:
+            clamped[i] = new[i]
+        else:
+            clamped[i] = old[i] + np.sign(diff[i]) * max_rad
+    return clamped
