@@ -4,9 +4,6 @@
     - README.md
     - requirements.txt
 - **results/**
-    - **MH_01_easy_results/**
-    - **npz/**
-        - MH_01_easy_results.npz
 - **src/**
     - config.py
     - gen_results.py
