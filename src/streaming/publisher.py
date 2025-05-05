@@ -57,7 +57,7 @@ class DataPublisher(object):
 if __name__ == '__main__':
     from queue import Queue
 
-    path = 'path/to/your/EuRoC Mav Dataset/MH_01_easy'
+    path = ''
     dataset = EuRoCDataset(path)
     dataset.set_starttime(offset=30)
 

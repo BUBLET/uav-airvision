@@ -5,7 +5,14 @@ from utils import *
 from feature import Feature
 from feature import BaseFeature
 from collections import namedtuple
+import os, time
 
+base = 'results/txts'
+os.makedirs(base, exist_ok=True)
+OUTPUT_FILE = os.path.join(
+    base,
+    f"output_{time.strftime('%Y%m%d_%H%M%S')}.txt"
+)
 
 class IMUState(object):
     # id for next IMU state
@@ -981,7 +988,7 @@ class MSCKF(object):
         t_c_w = imu_state.position + T_i_w.R @ imu_state.t_cam0_imu
         T_c_w = Isometry3d(R_w_c.T, t_c_w)
 
-        with open('output.txt', 'a') as file:
+        with open(OUTPUT_FILE, 'a') as file:
             file.write(f"{imu_state.timestamp:.6f} {imu_state.position[0]:.9f} {imu_state.position[1]:.9f} {imu_state.position[2]:.9f} {imu_state.orientation[0]:.9f} {imu_state.orientation[1]:.9f} {imu_state.orientation[2]:.9f} {imu_state.orientation[3]:.9f}\n")
 
         return namedtuple('vio_result', ['timestamp', 'pose', 'velocity', 'cam0_pose'])(

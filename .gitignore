@@ -16,3 +16,5 @@ __pycache__/
 .coveragearc
 output.txt
 structure.md
+traj_plots.py
+results/txts

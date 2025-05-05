@@ -5,10 +5,12 @@ from streaming.dataset import EuRoCDataset
 from streaming.publisher import DataPublisher
 from config import ConfigEuRoC
 from modules.vio import VIO
+from viewer import SimpleViewer
+import pyglet
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', default='./datasets/MH_01_easy')
+    parser.add_argument('--path', default='./datasets/V2_01_easy')
     parser.add_argument('--view', action='store_true')
     args = parser.parse_args()
 
@@ -16,7 +18,7 @@ def main():
     dataset.set_starttime(offset=40.)
 
     img_q, imu_q = Queue(), Queue()
-    viewer = None 
+    viewer = None
 
     config = ConfigEuRoC()
     vio = VIO(config, img_q, imu_q, viewer)
@@ -28,6 +30,7 @@ def main():
     now = time.time()
     imu_pub.start(now)
     img_pub.start(now)
+
 
 if __name__ == '__main__':
     main()
