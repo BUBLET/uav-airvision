@@ -14,3 +14,5 @@ combined_code_work.txt
 *.npz
 __pycache__/
 .coveragearc
+output.txt
+structure.md

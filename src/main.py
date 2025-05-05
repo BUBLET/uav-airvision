@@ -1,22 +1,33 @@
-import cv2
-from pathlib import Path
-
-from utils import get_dataset_name, save_results_npz, run_pipeline
-from gen_results import generate_results
-from config import DATASET_PATH
+import time
+import argparse
+from queue import Queue
+from streaming.dataset import EuRoCDataset
+from streaming.publisher import DataPublisher
+from config import ConfigEuRoC
+from modules.vio import VIO
 
 def main():
-    pred_states, gt_states, pred_positions, gt_positions = run_pipeline()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path', default='./datasets/MH_01_easy')
+    parser.add_argument('--view', action='store_true')
+    args = parser.parse_args()
 
-    dataset_name = get_dataset_name(Path(DATASET_PATH))
-    npz_path = save_results_npz(
-        pred_states, gt_states,
-        pred_positions, gt_positions,
-        dataset_name
-    )
+    dataset = EuRoCDataset(args.path)
+    dataset.set_starttime(offset=40.)
 
-    generate_results(str(npz_path), base_output_dir="results")
-    cv2.destroyAllWindows()
+    img_q, imu_q = Queue(), Queue()
+    viewer = None 
 
-if __name__ == "__main__":
+    config = ConfigEuRoC()
+    vio = VIO(config, img_q, imu_q, viewer)
+    vio.start()
+
+    imu_pub = DataPublisher(dataset.imu, imu_q, duration=float('inf'), ratio=0.4)
+    img_pub = DataPublisher(dataset.stereo, img_q, duration=float('inf'), ratio=0.4)
+
+    now = time.time()
+    imu_pub.start(now)
+    img_pub.start(now)
+
+if __name__ == '__main__':
     main()
