@@ -16,3 +16,6 @@ __pycache__/
 .coveragearc
 output.txt
 structure.md
+metrics.py
+plot_trajectories.py
+output.mp4

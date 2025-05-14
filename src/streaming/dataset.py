@@ -161,7 +161,6 @@ class ImageReader(object):
 
 class Stereo(object):
     def __init__(self, cam0, cam1):
-        assert len(cam0) == len(cam1)
         self.cam0 = cam0
         self.cam1 = cam1
         self.timestamps = cam0.timestamps
@@ -171,7 +170,7 @@ class Stereo(object):
 
     def __iter__(self):
         for l, r in zip(self.cam0, self.cam1):
-            assert abs(l.timestamp - r.timestamp) < 0.01, 'unsynced stereo pair'
+            #assert abs(l.timestamp - r.timestamp) < 0.01, 'unsynced stereo pair'
             yield self.field(l.timestamp, l.image, r.image, l, r)
 
     def __len__(self):

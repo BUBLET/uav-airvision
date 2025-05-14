@@ -27,7 +27,7 @@ class FeaturePositionInitializer:
         cam_poses = [(pose.inverse() * T_c0_w) for pose in cam_poses]
 
         initial_position = self.generate_initial_guess(
-            cam_poses[-2], measurements[0], measurements[-2])
+            cam_poses[1], measurements[0], measurements[1])
         solution = np.array([*initial_position[:2], 1.0]) / initial_position[2]
 
         lambd = self.optimization_config.initial_damping

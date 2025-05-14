@@ -1,33 +1,40 @@
+import os
 import time
 import argparse
 from queue import Queue
 from streaming.dataset import EuRoCDataset
 from streaming.publisher import DataPublisher
 from config import ConfigEuRoC
-from modules.vio import VIO
+from viewer import SimpleViewer
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', default='./datasets/MH_01_easy')
-    parser.add_argument('--view', action='store_true')
+    parser.add_argument('--path',   default='./datasets/V2_03_difficult')
+    parser.add_argument('--offset', type=float, default=10.)
+    parser.add_argument('--view',   action='store_true')
     args = parser.parse_args()
 
+    # 1) загружаем датасет и устанавливаем offset
     dataset = EuRoCDataset(args.path)
-    dataset.set_starttime(offset=40.)
+    dataset.set_starttime(offset=args.offset)
+
+    # 2) записываем в окружение до импорта VIO/msckf
+    name = os.path.basename(os.path.normpath(args.path))
+    os.environ['DATASET_NAME'] = name
+    os.environ['TIME_OFFSET']  = str(int(args.offset))
+
+    # 3) только теперь импортируем VIO, он подтянет msckf.py с правильными env
+    from modules.vio import VIO
 
     img_q, imu_q = Queue(), Queue()
-    viewer = None 
+    viewer = SimpleViewer() if args.view else None
 
-    config = ConfigEuRoC()
-    vio = VIO(config, img_q, imu_q, viewer)
+    vio = VIO(ConfigEuRoC(), img_q, imu_q, viewer)
     vio.start()
 
-    imu_pub = DataPublisher(dataset.imu, imu_q, duration=float('inf'), ratio=0.4)
-    img_pub = DataPublisher(dataset.stereo, img_q, duration=float('inf'), ratio=0.4)
-
     now = time.time()
-    imu_pub.start(now)
-    img_pub.start(now)
+    DataPublisher(dataset.imu, imu_q,      duration=float('inf'), ratio=0.4).start(now)
+    DataPublisher(dataset.stereo, img_q,   duration=float('inf'), ratio=0.4).start(now)
 
 if __name__ == '__main__':
     main()

@@ -63,11 +63,11 @@ class ConfigEuRoC(object):
         # uncertainty will make the estimation unstable.
         # Note this online reset will be some dead-reckoning.
         # Set this threshold to nonpositive to disable online reset.
-        self.position_std_threshold = 8.0
+        self.position_std_threshold = 2.0
 
         # Threshold for determine keyframes
-        self.rotation_threshold = 0.2618
-        self.translation_threshold = 0.4
+        self.rotation_threshold = 0.15
+        self.translation_threshold = 0.2
         self.tracking_rate_threshold = 0.5
 
         # Noise related parameters (Use variance instead of standard deviation)
