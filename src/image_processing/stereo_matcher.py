@@ -32,20 +32,20 @@ class StereoMatcher:
 
     def stereo_match(self, cam0_points):
         """
-        Matches points from cam0 to cam1 using optical flow + stereo geometry.
+        Сопоставляет точки из cam0 с cam1 с помощью оптического потока и стерео-геометрии.
 
-        Args:
-            cam0_points: list or array of (x,y) in left image.
+        Аргументы:
+            cam0_points: список или массив точек (x, y) на левом изображении.
 
-        Returns:
-            cam1_points: ndarray of matched (x,y) in right image.
-            inlier_mask: boolean ndarray, True for valid matches.
+        Возвращает:
+            cam1_points: массив подобранных точек (x, y) на правом изображении.
+            inlier_mask: булевый массив, True для валидных соответствий.
         """
         if len(cam0_points) == 0:
             return np.array([]), np.array([], dtype=bool)
 
         pts0 = np.array(cam0_points, dtype=np.float32)
-        # rectify undistort
+
         R0to1 = self.R_cam1_imu.T @ self.R_cam0_imu
         und0 = self.camera_model.undistort_points(
             pts0, self.camera_model.intrinsics,
@@ -53,20 +53,20 @@ class StereoMatcher:
             self.camera_model.distortion_coeffs,
             rectification_matrix=R0to1
         )
-        # project back into cam1 distorted
+
         proj1 = self.camera_model.distort_points(
             und0, self.camera_model.intrinsics,
             self.camera_model.distortion_model,
             self.camera_model.distortion_coeffs
         )
 
-        # LK-tracking left->right
+
         p1, track_mask, _ = cv2.calcOpticalFlowPyrLK(
             self.pyr0, self.pyr1,
             pts0, np.array(proj1, dtype=np.float32),
             **self.lk_params
         )
-        # reverse check right->left
+
         p0r, rev_mask, _ = cv2.calcOpticalFlowPyrLK(
             self.pyr1, self.pyr0,
             p1, pts0.copy(),
@@ -79,7 +79,6 @@ class StereoMatcher:
                   (err < 3) &
                   (disp < 20))
 
-        # boundary check in right image
         h, w = self.pyr1.shape[:2]
         for i, pt in enumerate(p1):
             if not inlier[i]:
@@ -88,7 +87,6 @@ class StereoMatcher:
             if x<0 or x>=w or y<0 or y>=h:
                 inlier[i] = False
 
-        # essential-matrix filtering
         t01 = self.R_cam1_imu.T @ (self.t_cam0_imu - self.t_cam1_imu)
         E = skew(t01) @ R0to1
 

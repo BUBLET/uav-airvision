@@ -6,7 +6,7 @@ import cv2
 
 class OptimizationConfigEuRoC(object):
     """
-    Configuration parameters for 3d feature position optimization.
+    Конфигурационные параметры для оптимизации положения 3D-признака.
     """
     def __init__(self):
         self.translation_threshold = -1.0  # 0.2
@@ -18,10 +18,8 @@ class OptimizationConfigEuRoC(object):
 
 class ConfigEuRoC(object):
     def __init__(self):
-        # feature position optimization
         self.optimization_config = OptimizationConfigEuRoC()
 
-        ## image processor
         self.grid_row = 4
         self.grid_col = 5
         self.grid_num = self.grid_row * self.grid_col
@@ -47,30 +45,30 @@ class ConfigEuRoC(object):
         
 
         ## msckf vio
-        # gravity
+        # гравитация
         self.gravity_acc = 9.81
         self.gravity = np.array([0.0, 0.0, -self.gravity_acc])
 
-        # Framte rate of the stereo images. This variable is only used to 
-        # determine the timing threshold of each iteration of the filter.
+        # Частота кадров стереоизображений. Используется только для
+        # определения временного порога каждой итерации фильтра.
         self.frame_rate = 20
 
-        # Maximum number of camera states to be stored
+        # Максимальное число сохраняемых состояний камеры
         self.max_cam_state_size = 20
 
-        # The position uncertainty threshold is used to determine
-        # when to reset the system online. Otherwise, the ever-increaseing
-        # uncertainty will make the estimation unstable.
-        # Note this online reset will be some dead-reckoning.
-        # Set this threshold to nonpositive to disable online reset.
+        # Порог неопределённости положения используется для определения,
+        # когда необходимо онлайн-сброс системы. В противном случае
+        # накапливающаяся неопределённость приведёт к неустойчивости оценки.
+        # Учитывать, что при онлайн-сбросе используется dead-reckoning.
+        # Чтобы отключить онлайн-сброс, установить этот порог в неположительное значение.
         self.position_std_threshold = 2.0
 
-        # Threshold for determine keyframes
+        # Порог для определения ключевых кадров
         self.rotation_threshold = 0.15
         self.translation_threshold = 0.2
         self.tracking_rate_threshold = 0.5
 
-        # Noise related parameters (Use variance instead of standard deviation)
+        # Параметры, связанные с шумом (используется дисперсия, а не стандартное отклонение)
         self.gyro_noise = 0.005 ** 2
         self.acc_noise = 0.05 ** 2
         self.gyro_bias_noise = 0.001 ** 2
@@ -80,19 +78,18 @@ class ConfigEuRoC(object):
         # initial state
         self.velocity = np.zeros(3)
 
-        # The initial covariance of orientation and position can be
-        # set to 0. But for velocity, bias and extrinsic parameters, 
-        # there should be nontrivial uncertainty.
+        # Начальную ковариацию для ориентации и положения можно задать нулевой.
+        # Но для скорости, смещений и внешних параметров должна быть ненулевая неопределённость.
         self.velocity_cov = 0.25
         self.gyro_bias_cov = 0.01
         self.acc_bias_cov = 0.01
         self.extrinsic_rotation_cov = 3.0462e-4
         self.extrinsic_translation_cov = 2.5e-5
 
-        ## calibration parameters
-        # T_imu_cam: takes a vector from the IMU frame to the cam frame.
-        # T_cn_cnm1: takes a vector from the cam0 frame to the cam1 frame.
-        # see https://github.com/ethz-asl/kalibr/wiki/yaml-formats
+        ## параметры калибровки
+        # T_imu_cam: преобразует вектор из системы IMU в систему камеры.
+        # T_cn_cnm1: преобразует вектор из системы камеры-0 в систему камеры-1.
+        # см. https://github.com/ethz-asl/kalibr/wiki/yaml-formats
         self.T_imu_cam0 = np.array([
             [ 0.014865542981794,   0.999557249008346,  -0.025774436697440,   0.065222909535531],
             [-0.999880929698575,   0.014967213324719,   0.003756188357967,  -0.020706385492719],

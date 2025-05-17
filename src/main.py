@@ -14,16 +14,13 @@ def main():
     parser.add_argument('--view',   action='store_true')
     args = parser.parse_args()
 
-    # 1) загружаем датасет и устанавливаем offset
     dataset = EuRoCDataset(args.path)
     dataset.set_starttime(offset=args.offset)
 
-    # 2) записываем в окружение до импорта VIO/msckf
     name = os.path.basename(os.path.normpath(args.path))
     os.environ['DATASET_NAME'] = name
     os.environ['TIME_OFFSET']  = str(int(args.offset))
 
-    # 3) только теперь импортируем VIO, он подтянет msckf.py с правильными env
     from modules.vio import VIO
 
     img_q, imu_q = Queue(), Queue()

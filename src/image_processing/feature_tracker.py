@@ -132,7 +132,6 @@ class FeatureTracker:
         cm_cam1  = select(curr_cam1_pts,  match_mask)
         self.num_features['after_matching'] = len(cm_cam0)
 
-        # 9) RANSAC-шаблон (здесь заглушка — все inliers)
         cam0_inls = [1] * len(pm_cam0)
         cam1_inls = [1] * len(pm_cam1)
 

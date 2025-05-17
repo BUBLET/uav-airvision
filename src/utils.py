@@ -1,14 +1,7 @@
 import numpy as np
-
-
-
-# quaternion representation: [x, y, z, w]
-# JPL convention
-
-
 def skew(vec):
     """
-    Create a skew-symmetric matrix from a 3-element vector.
+    Создаёт кососимметричную матрицу из 3-мерного вектора.
     """
     x, y, z = vec
     return np.array([
@@ -18,11 +11,9 @@ def skew(vec):
 
 def to_rotation(q):
     """
-    Convert a quaternion to the corresponding rotation matrix.
-    Pay attention to the convention used. The function follows the
-    conversion in "Indirect Kalman Filter for 3D Attitude Estimation:
-    A Tutorial for Quaternion Algebra", Equation (78).
-    The input quaternion should be in the form [q1, q2, q3, q4(scalar)]
+    Преобразует кватернион в матрицу вращения.
+    Учитывает соглашение, использует формулу из "Indirect Kalman Filter for 3D Attitude Estimation", уравнение (78).
+    Входной кватернион в формате [q1, q2, q3, q4 (скаляр)].
     """
     q = q / np.linalg.norm(q)
     vec = q[:3]
@@ -33,11 +24,9 @@ def to_rotation(q):
 
 def to_quaternion(R):
     """
-    Convert a rotation matrix to a quaternion.
-    Pay attention to the convention used. The function follows the
-    conversion in "Indirect Kalman Filter for 3D Attitude Estimation:
-    A Tutorial for Quaternion Algebra", Equation (78).
-    The input quaternion should be in the form [q1, q2, q3, q4(scalar)]
+    Преобразует матрицу вращения в кватернион.
+    Учитывает соглашение, использует формулу из "Indirect Kalman Filter for 3D Attitude Estimation", уравнение (78).
+    Входной кватернион в формате [q1, q2, q3, q4 (скаляр)].
     """
     if R[2, 2] < 0:
         if R[0, 0] > R[1, 1]:
@@ -59,19 +48,19 @@ def to_quaternion(R):
 
 def quaternion_normalize(q):
     """
-    Normalize the given quaternion to unit quaternion.
+    Нормализует заданный кватернион.
     """
     return q / np.linalg.norm(q)
 
 def quaternion_conjugate(q):
     """
-    Conjugate of a quaternion.
+    Вычисляет сопряжённый кватернион.
     """
     return np.array([*-q[:3], q[3]])
 
 def quaternion_multiplication(q1, q2):
     """
-    Perform q1 * q2
+    Выполняет умножение кватернионов q1 * q2.
     """
     q1 = q1 / np.linalg.norm(q1)
     q2 = q2 / np.linalg.norm(q2)
@@ -89,11 +78,9 @@ def quaternion_multiplication(q1, q2):
 
 def small_angle_quaternion(dtheta):
     """
-    Convert the vector part of a quaternion to a full quaternion.
-    This function is useful to convert delta quaternion which is  
-    usually a 3x1 vector to a full quaternion.
-    For more details, check Equation (238) and (239) in "Indirect Kalman 
-    Filter for 3D Attitude Estimation: A Tutorial for quaternion Algebra".
+    Преобразует малый угол (вектор) в полный кватернион.
+    Используется для delta-кватернионов, обычно 3x1 вектор.
+    См. уравнения (238) и (239) в "Indirect Kalman Filter for 3D Attitude Estimation".
     """
     dq = dtheta / 2.
     dq_square_norm = dq @ dq
@@ -108,7 +95,7 @@ def small_angle_quaternion(dtheta):
 
 def from_two_vectors(v0, v1):
     """
-    Rotation quaternion from v0 to v1.
+    Вычисляет кватернион вращения из вектора v0 в вектор v1.
     """
     v0 = v0 / np.linalg.norm(v0)
     v1 = v1 / np.linalg.norm(v1)
@@ -135,9 +122,6 @@ def from_two_vectors(v0, v1):
 
 
 class Isometry3d(object):
-    """
-    3d rigid transform.
-    """
     def __init__(self, R, t):
         self.R = R
         self.t = t

@@ -10,8 +10,6 @@ optuna_study.log
 .coverage
 combined_code_work.txt
 /work
-*.png
-*.npz
 __pycache__/
 .coveragearc
 output.txt
@@ -19,3 +17,5 @@ structure.md
 metrics.py
 plot_trajectories.py
 output.mp4
+/results/ate_summary.py
+/results/rte_summary.py

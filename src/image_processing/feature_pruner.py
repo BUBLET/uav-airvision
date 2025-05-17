@@ -7,9 +7,8 @@ class FeaturePruner:
 
     def prune_features(self):
         """
-        Remove some of the features of a grid in case there are too many 
-        features inside of that grid, which ensures the number of features 
-        within each grid is bounded.
+        Удаляет часть признаков из ячейки сетки, если их слишком много,
+        чтобы ограничить число признаков в каждой ячейке.
         """
         for i, features in enumerate(self.curr_features):
             # Continue if the number of features in this grid does

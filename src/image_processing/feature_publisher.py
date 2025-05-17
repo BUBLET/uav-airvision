@@ -25,17 +25,18 @@ class FeaturePublisher:
         distortion_coeffs, rectification_matrix=np.identity(3),
         new_intrinsics=np.array([1, 1, 0, 0])):
         """
-        Arguments:
-            pts_in: points to be undistorted.
-            intrinsics: intrinsics of the camera.
-            distortion_model: distortion model of the camera.
-            distortion_coeffs: distortion coefficients.
-            rectification_matrix:
-            new_intrinsics:
+        Аргументы:
+            pts_in: точки для коррекции дисторсии (undistort).
+            intrinsics: параметры внутренней калибровки камеры.
+            distortion_model: модель дисторсии камеры.
+            distortion_coeffs: коэффициенты дисторсии.
+            rectification_matrix: матрица выпрямления.
+            new_intrinsics: новые параметры внутренней калибровки.
 
-        Returns:
-            pts_out: undistorted points.
+        Возвращает:
+            pts_out: точки без дисторсии.
         """
+
         if len(pts_in) == 0:
             return []
         
@@ -60,15 +61,16 @@ class FeaturePublisher:
     def distort_points(self, pts_in, intrinsics, distortion_model, 
             distortion_coeffs):
         """
-        Arguments:
-            pts_in: points to be distorted.
-            intrinsics: intrinsics of the camera.
-            distortion_model: distortion model of the camera.
-            distortion_coeffs: distortion coefficients.
+        Аргументы:
+            pts_in: точки для наложения дисторсии.
+            intrinsics: параметры внутренней калибровки камеры.
+            distortion_model: модель дисторсии камеры.
+            distortion_coeffs: коэффициенты дисторсии.
 
-        Returns:
-            pts_out: distorted points. (N, 2)
+        Возвращает:
+            pts_out: точки с дисторсией. (N, 2)
         """
+
         if len(pts_in) == 0:
             return []
 
@@ -87,8 +89,7 @@ class FeaturePublisher:
     
     def publish(self):
         """
-        Publish the features on the current image including both the 
-        tracked and newly detected ones.
+        Публикует признаки на текущем изображении, включая как трекируемые, так и новые.
         """
         curr_ids = []
         curr_cam0_points = []

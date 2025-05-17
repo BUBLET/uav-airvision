@@ -5,8 +5,9 @@ from .utils import Isometry3d, to_rotation
 class FeaturePositionInitializer:
     def initialize_position(self, cam_states):
         """
-        Initialize the feature position from all observations.
+        Инициализирует положение по всем наблюдениям.
         """
+
         cam_poses = []
         measurements = []
         T_cam1_cam0 = Isometry3d(

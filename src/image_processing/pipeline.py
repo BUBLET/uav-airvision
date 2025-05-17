@@ -16,42 +16,37 @@ class ImageProcessingPipeline:
         self.config = config
         self.prev_cam0_msg = None
         
-        # IMU handler
         self.imu_processor = IMUProcessor(
             config.T_imu_cam0, config.T_imu_cam1
         )
 
-        # Feature detector (FAST)
         self.detector = cv2.FastFeatureDetector_create(
             config.fast_threshold
         )
 
-        # Camera geometry
         self.camera_model = CameraModel(
             config.cam0_intrinsics,
             config.cam0_distortion_model,
             config.cam0_distortion_coeffs
         )
 
-        # State for features
         self.next_feature_id = 0
         self.prev_features   = [[] for _ in range(config.grid_num)]
         self.curr_features   = [[] for _ in range(config.grid_num)]
         self.num_features    = defaultdict(int)
 
-        # Track whether we've seen the first frame
         self.first_frame = True
-        # Keep last pyramids around for tracking
+
         self.prev_pyr0 = None
 
     def imu_callback(self, imu_msg):
-        """Feed IMU messages into the IMUProcessor."""
+        """Передаёт IMU-сообщения в IMUProcessor."""
         self.imu_processor.imu_callback(imu_msg)
 
     def stereo_callback(self, stereo_msg):
         """
-        Process one stereo message (cam0_msg + cam1_msg).
-        Returns a FeatureMeasurement message.
+        Обрабатывает одно стереосообщение (cam0_msg + cam1_msg).
+        Возвращает сообщение FeatureMeasurement.
         """
 
         self.imu_processor.cam0_prev_img_msg = self.prev_cam0_msg
@@ -59,7 +54,6 @@ class ImageProcessingPipeline:
 
         cam0_msg, cam1_msg = stereo_msg.cam0_msg, stereo_msg.cam1_msg
 
-        # 1) Build pyramids for this frame
         pyramid_builder = PyramidBuilder(
             self.config.win_size,
             self.config.pyramid_levels,
@@ -68,7 +62,6 @@ class ImageProcessingPipeline:
         )
         pyr0, pyr1 = pyramid_builder.create_image_pyramids()
 
-        # 2) Prepare stereo matcher for this frame
         stereo_matcher = StereoMatcher(
             self.config.lk_params,
             self.imu_processor,
@@ -78,7 +71,6 @@ class ImageProcessingPipeline:
         )
 
         if self.first_frame:
-            # 3a) Initialize on the very first frame
             initializer = FeatureInitializer(
                 detector          = self.detector,
                 stereo_matcher    = stereo_matcher,
@@ -95,7 +87,6 @@ class ImageProcessingPipeline:
             self.first_frame = False
 
         else:
-            # 3b) Track existing features
             tracker = FeatureTracker(
                 lk_params           = self.config.lk_params,
                 imu_processor       = self.imu_processor,
@@ -117,7 +108,6 @@ class ImageProcessingPipeline:
             )
             tracker.track_features()
 
-            # 4) Add new features to underfilled cells
             adder = FeatureAdder(
                 detector            = self.detector,
                 stereo_matcher      = stereo_matcher,
@@ -133,13 +123,11 @@ class ImageProcessingPipeline:
             adder.add_new_features()
             self.next_feature_id = adder.next_feature_id
 
-            # 5) Prune overfull cells
             pruner = FeaturePruner(self.config.grid_max_feature_num)
             pruner.curr_features = self.curr_features
             pruner.config        = self.config
             pruner.prune_features()
 
-        # 6) Publish the resulting feature measurements
         publisher = FeaturePublisher(
             self.config.cam0_intrinsics,
             self.config.cam0_distortion_model,
@@ -154,7 +142,6 @@ class ImageProcessingPipeline:
 
         feature_msg = publisher.publish()
 
-        # 7) Shift state for next frame
         self.prev_cam0_msg = cam0_msg
         self.prev_features = self.curr_features
         self.curr_features = [[] for _ in range(self.config.grid_num)]

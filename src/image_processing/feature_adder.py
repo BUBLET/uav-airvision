@@ -43,7 +43,7 @@ class FeatureAdder:
 
     def get_grid_size(self, img):
         """
-        Size of each grid.
+        Размер каждой ячейки сетки.
         """
         grid_height = int(np.ceil(img.shape[0] / self.grid_row))
         grid_width  = int(np.ceil(img.shape[1] / self.grid_col))
@@ -51,22 +51,18 @@ class FeatureAdder:
     
     def add_new_features(self):
         """
-        Detect new features on the image to ensure that the features are 
-        uniformly distributed on the image.
+        Детектирует новые признаки на изображении для равномерного распределения признаков по всему кадру.
         """
         curr_img = self.cam0_curr_img_msg.image
         grid_height, grid_width = self.get_grid_size(curr_img)
 
-        # Create a mask to avoid redetecting existing features.
         mask = np.ones(curr_img.shape[:2], dtype='uint8')
         for feature in chain.from_iterable(self.curr_features):
             x, y = map(int, feature.cam0_point)
             mask[y-3:y+4, x-3:x+4] = 0
 
-        # Detect new features.
         new_features = self.detector.detect(curr_img, mask=mask)
 
-        # Collect the new detected features based on the grid.
         new_feature_sieve = [[] for _ in range(self.config.grid_num)]
         for kp in new_features:
             row = int(kp.pt[1] / grid_height)
@@ -80,11 +76,9 @@ class FeatureAdder:
                 cell = sorted(cell, key=lambda x: x.response, reverse=True)[:self.grid_max_feature_num]
             new_features.extend(cell)
 
-        # Stereo match
         cam0_points = [kp.pt for kp in new_features]
         cam1_points, inlier_markers = self.stereo_match(cam0_points)
 
-        # Filter inliers
         cam0_inliers, cam1_inliers, response_inliers = [], [], []
         for i, ok in enumerate(inlier_markers):
             if not ok:
@@ -93,7 +87,6 @@ class FeatureAdder:
             cam1_inliers.append(cam1_points[i])
             response_inliers.append(new_features[i].response)
 
-        # Group by grid
         grid_new_features = [[] for _ in range(self.config.grid_num)]
         for pt0, pt1, resp in zip(cam0_inliers, cam1_inliers, response_inliers):
             row = int(pt0[1] / grid_height)
@@ -106,7 +99,6 @@ class FeatureAdder:
             fm.cam1_point = pt1
             grid_new_features[code].append(fm)
 
-        # Select top in each grid
         for i, feats in enumerate(grid_new_features):
             top = sorted(feats, key=lambda x: x.response, reverse=True)[:self.grid_min_feature_num]
             for f in top:

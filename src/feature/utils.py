@@ -2,7 +2,7 @@ import numpy as np
 
 class Isometry3d(object):
     """
-    3d rigid transform.
+    Жёсткое преобразование в 3D.
     """
     def __init__(self, R, t):
         self.R = R
@@ -24,12 +24,12 @@ class Isometry3d(object):
     
 def to_rotation(q):
     """
-    Convert a quaternion to the corresponding rotation matrix.
-    Pay attention to the convention used. The function follows the
-    conversion in "Indirect Kalman Filter for 3D Attitude Estimation:
-    A Tutorial for Quaternion Algebra", Equation (78).
-    The input quaternion should be in the form [q1, q2, q3, q4(scalar)]
+    Преобразует кватернион в соответствующую матрицу вращения.
+    Здесь применяется формула из
+    "Indirect Kalman Filter for 3D Attitude Estimation: A Tutorial for Quaternion Algebra", уравнение (78).
+    На вход подаётся кватернион в виде [q1, q2, q3, q4(скалярная часть)].
     """
+
     q = q / np.linalg.norm(q)
     vec = q[:3]
     w = q[3]
@@ -39,7 +39,7 @@ def to_rotation(q):
 
 def skew(vec):
     """
-    Create a skew-symmetric matrix from a 3-element vector.
+    Формирует кососимметричную матрицу из 3-мерного вектора.
     """
     x, y, z = vec
     return np.array([

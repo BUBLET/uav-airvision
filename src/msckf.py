@@ -16,88 +16,77 @@ def _make_output_filepath():
     return os.path.join(base, fname)
 
 class IMUState(object):
-    # id for next IMU state
+    # id для следующего состояния IMU
     next_id = 0
 
-    # Gravity vector in the world frame
+    # Вектор гравитации в мировой СК
     gravity = np.array([0., 0., -9.81])
 
-    # Transformation offset from the IMU frame to the body frame. 
-    # The transformation takes a vector from the IMU frame to the 
-    # body frame. The z axis of the body frame should point upwards.
-    # Normally, this transform should be identity.
+    # Смещение между системой IMU и системой корпуса.
+    # Преобразует вектор из системы IMU в систему корпуса.
+    # Ось z корпуса должна быть направлена вверх.
+    # Обычно это преобразование — тождественное.
     T_imu_body = Isometry3d(np.identity(3), np.zeros(3))
 
     def __init__(self, new_id=None):
-        # An unique identifier for the IMU state.
+        # Уникальный идентификатор состояния IMU.
         self.id = new_id
-        # Time when the state is recorded
+        # Время записи состояния.
         self.timestamp = None
 
-        # Orientation
-        # Take a vector from the world frame to the IMU (body) frame.
+        # Ориентация: преобразует вектор из мировой системы в систему IMU (корпуса).
         self.orientation = np.array([0., 0., 0., 1.])
 
-        # Position of the IMU (body) frame in the world frame.
+        # Положение системы IMU (корпуса) в мировой системе.
         self.position = np.zeros(3)
-        # Velocity of the IMU (body) frame in the world frame.
+        # Скорость системы IMU (корпуса) в мировой системе.
         self.velocity = np.zeros(3)
 
-        # Bias for measured angular velocity and acceleration.
+        # Смещения гироскопа и акселерометра.
         self.gyro_bias = np.zeros(3)
         self.acc_bias = np.zeros(3)
 
-        # These three variables should have the same physical
-        # interpretation with `orientation`, `position`, and
-        # `velocity`. There three variables are used to modify
-        # the transition matrices to make the observability matrix
-        # have proper null space.
+        # Эти три переменные должны физически соответствовать orientation, position и velocity.
+        # Используются для корректировки переходных матриц и обеспечения правильного ядра наблюдаемости.
+        # Ориентация, положение и скорость для "нулевого" состояния.
         self.orientation_null = np.array([0., 0., 0., 1.])
         self.position_null = np.zeros(3)
         self.velocity_null = np.zeros(3)
 
-        # Transformation between the IMU and the left camera (cam0)
+        # Преобразование между IMU и левой камерой (cam0).
         self.R_imu_cam0 = np.identity(3)
         self.t_cam0_imu = np.zeros(3)
 
 
 class CAMState(object):
-    # Takes a vector from the cam0 frame to the cam1 frame.
+    # Преобразует вектор из системы cam0 в систему cam1.
     R_cam0_cam1 = None
     t_cam0_cam1 = None
 
     def __init__(self, new_id=None):
-        # An unique identifier for the CAM state.
         self.id = new_id
-        # Time when the state is recorded
         self.timestamp = None
 
-        # Orientation
-        # Take a vector from the world frame to the camera frame.
+        # Ориентация: преобразует вектор из мировой системы в систему камеры.
         self.orientation = np.array([0., 0., 0., 1.])
 
-        # Position of the camera frame in the world frame.
+        # Положение системы камеры в мировой системе.
         self.position = np.zeros(3)
 
-        # These two variables should have the same physical
-        # interpretation with `orientation` and `position`.
-        # There two variables are used to modify the measurement
-        # Jacobian matrices to make the observability matrix
-        # have proper null space.
         self.orientation_null = np.array([0., 0., 0., 1.])
         self.position_null = np.zeros(3)
 
         
 class StateServer(object):
     """
-    Store one IMU states and several camera states for constructing 
-    measurement model.
+    
+    Хранит одно состояние IMU и несколько состояний камеры для построения измерительной модели.
+    
     """
     def __init__(self):
         self.imu_state = IMUState()
-        self.cam_states = dict()   # <CAMStateID, CAMState>, ordered dict
+        self.cam_states = dict() 
 
-        # State covariance matrix
         self.state_cov = np.zeros((21, 21))
         self.continuous_noise_cov = np.zeros((12, 12))
 
@@ -108,26 +97,26 @@ class MSCKF(object):
         self.config = config
         self.optimization_config = config.optimization_config
 
-        # IMU data buffer
-        # This is buffer is used to handle the unsynchronization or
-        # transfer delay between IMU and Image messages.
+        # Буфер данных IMU.
+        # Используется для компенсации несинхронизации или задержек передачи между сообщениями IMU и изображениями.
         self.imu_msg_buffer = []
 
-        # State vector
+        # Вектор состояния
         self.state_server = StateServer()
-        # Features used
+        # Используемые признаки
         self.map_server = dict()   # <FeatureID, Feature>
 
-        # Chi squared test table.
-        # Initialize the chi squared test table with confidence level 0.95.
+        # Таблица критических значений chi-квадрат.
+        # Инициализируется для доверительного уровня 0.95.
         self.chi_squared_test_table = dict()
         for i in range(1, 100):
             self.chi_squared_test_table[i] = chi2.ppf(0.05, i)
 
-        # Set the initial IMU state.
-        # The intial orientation and position will be set to the origin implicitly.
-        # But the initial velocity and bias can be set by parameters.
-        # TODO: is it reasonable to set the initial bias to 0?
+        # Устанавливает начальное состояние IMU.
+        # Начальная ориентация и положение задаются равными нулю по умолчанию.
+        # Начальную скорость и смещения можно задать параметрами.
+        # TODO: имеет ли смысл инициализировать смещения нулём?
+
         self.state_server.imu_state.velocity = config.velocity
         self.reset_state_cov()
 
@@ -138,15 +127,12 @@ class MSCKF(object):
         continuous_noise_cov[9:, 9:] *= self.config.acc_bias_noise
         self.state_server.continuous_noise_cov = continuous_noise_cov
 
-        # Gravity vector in the world frame
         IMUState.gravity = config.gravity
 
-        # Transformation between the IMU and the left camera (cam0)
         T_cam0_imu = np.linalg.inv(config.T_imu_cam0)
         self.state_server.imu_state.R_imu_cam0 = T_cam0_imu[:3, :3].T
         self.state_server.imu_state.t_cam0_imu = T_cam0_imu[:3, 3]
 
-        # Extrinsic parameters of camera and IMU.
         T_cam0_cam1 = config.T_cn_cnm1
         CAMState.R_cam0_cam1 = T_cam0_cam1[:3, :3]
         CAMState.t_cam0_cam1 = T_cam0_cam1[:3, 3]
@@ -156,13 +142,10 @@ class MSCKF(object):
             config.T_imu_body[:3, :3],
             config.T_imu_body[:3, 3])
 
-        # Tracking rate.
         self.tracking_rate = None
 
-        # Indicate if the gravity vector is set.
         self.is_gravity_set = False
-        # Indicate if the received image is the first one. The system will 
-        # start after receiving the first image.
+
         self.is_first_img = True
         self._outfile = _make_output_filepath()
 
@@ -178,11 +161,12 @@ class MSCKF(object):
 
     def imu_callback(self, imu_msg):
         """
-        Callback function for the imu message.
+        Колбэк для обработки сообщений IMU.
         """
-        # IMU msgs are pushed backed into a buffer instead of being processed 
-        # immediately. The IMU msgs are processed when the next image is  
-        # available, in which way, we can easily handle the transfer delay.
+        # Сообщения IMU помещаются в буфер, а не обрабатываются сразу.
+        # Обработка IMU выполняется при поступлении следующего изображения,
+        # что облегчает учёт задержек передачи.
+
         self.imu_msg_buffer.append(imu_msg)
 
         if not self.is_gravity_set:
@@ -192,42 +176,42 @@ class MSCKF(object):
 
     def feature_callback(self, feature_msg):
         """
-        Callback function for feature measurements.
+        Колбэк для обработки измерений признаков.
         """
+
         if not self.is_gravity_set:
             return
         start = time.time()
 
-        # Start the system if the first image is received.
-        # The frame where the first image is received will be the origin.
+        # Запуск системы при получении первого изображения.
+        # Кадр с первым изображением принимается за начало координат.
         if self.is_first_img:
             self.is_first_img = False
             self.state_server.imu_state.timestamp = feature_msg.timestamp
 
         t = time.time()
 
-        # Propogate the IMU state.
-        # that are received before the image msg.
+        # Прогноз состояния IMU.
+        # Применяется ко всем сообщениям, полученным до изображения.
         self.batch_imu_processing(feature_msg.timestamp)
 
         print('---batch_imu_processing    ', time.time() - t)
         t = time.time()
 
-        # Augment the state vector.
+        # Дополняет (расширяет) вектор состояния.
         self.state_augmentation(feature_msg.timestamp)
 
         print('---state_augmentation      ', time.time() - t)
         t = time.time()
 
-        # Add new observations for existing features or new features 
-        # in the map server.
+        # Добавляет новые наблюдения к существующим признакам или новым признакам в map server.
         self.add_feature_observations(feature_msg)
 
         print('---add_feature_observations', time.time() - t)
         t = time.time()
 
-        # Perform measurement update if necessary.
-        # And prune features and camera states.
+        # Выполняет обновление по измерениям при необходимости.
+        # Очищает признаки и состояния камеры.
         self.remove_lost_features()
 
         print('---remove_lost_features    ', time.time() - t)
@@ -239,16 +223,13 @@ class MSCKF(object):
         print('---msckf elapsed:          ', time.time() - start, f'({feature_msg.timestamp})')
 
         try:
-            # Publish the odometry.
             return self.publish(feature_msg.timestamp)
         finally:
-            # Reset the system if necessary.
             self.online_reset()
 
     def initialize_gravity_and_bias(self):
         """
-        Initialize the IMU bias and initial orientation based on the 
-        first few IMU readings.
+        Инициализирует смещения и начальную ориентацию IMU по первым измерениям IMU.
         """
         sum_angular_vel = np.zeros(3)
         sum_linear_acc = np.zeros(3)
@@ -259,19 +240,14 @@ class MSCKF(object):
         gyro_bias = sum_angular_vel / len(self.imu_msg_buffer)
         self.state_server.imu_state.gyro_bias = gyro_bias
 
-        # This is the gravity in the IMU frame.
         gravity_imu = sum_linear_acc / len(self.imu_msg_buffer)
 
-        # Initialize the initial orientation, so that the estimation
-        # is consistent with the inertial frame.
         gravity_norm = np.linalg.norm(gravity_imu)
         IMUState.gravity = np.array([0., 0., -gravity_norm])
 
         self.state_server.imu_state.orientation = from_two_vectors(
             -IMUState.gravity, gravity_imu)
 
-    # Filter related functions
-    # (batch_imu_processing, process_model, predict_new_state)
     def batch_imu_processing(self, time_bound):
         """
         Propogate the state
@@ -285,18 +261,15 @@ class MSCKF(object):
             if imu_time > time_bound:
                 break
 
-            # Execute process model.
             self.process_model(
                 imu_time, msg.angular_velocity, msg.linear_acceleration)
             used_imu_msg_count += 1
 
-            # Update the state info
             self.state_server.imu_state.timestamp = imu_time
 
         self.state_server.imu_state.id = IMUState.next_id
         IMUState.next_id += 1
 
-        # Remove all used IMU msgs.
         self.imu_msg_buffer = self.imu_msg_buffer[used_imu_msg_count:]
 
     def process_model(self, time, m_gyro, m_acc):
@@ -306,7 +279,6 @@ class MSCKF(object):
         gyro = m_gyro - imu_state.gyro_bias
         acc = m_acc - imu_state.acc_bias
 
-        # Compute discrete transition and noise covariance matrix
         F = np.zeros((21, 21))
         G = np.zeros((21, 12))
 
@@ -323,17 +295,15 @@ class MSCKF(object):
         G[6:9, 6:9] = -R_w_i.T
         G[9:12, 9:12] = np.identity(3)
 
-        # Approximate matrix exponential to the 3rd order, which can be 
-        # considered to be accurate enough assuming dt is within 0.01s.
+        # Аппроксимация матричной экспоненты до третьего порядка.
+        # Достаточно точно при dt ≲ 0.01 с.
         Fdt = F * dt
         Fdt_square = Fdt @ Fdt
         Fdt_cube = Fdt_square @ Fdt
         Phi = np.identity(21) + Fdt + Fdt_square/2. + Fdt_cube/6.
 
-        # Propogate the state using 4th order Runge-Kutta
         self.predict_new_state(dt, gyro, acc)
 
-        # Modify the transition matrix
         R_kk_1 = to_rotation(imu_state.orientation_null)
         Phi[:3, :3] = to_rotation(imu_state.orientation) @ R_kk_1.T
 
@@ -351,7 +321,6 @@ class MSCKF(object):
             imu_state.position) @ IMUState.gravity
         Phi[12:15, :3] = A2 - (A2 @ u - w2)[:, None] * s
 
-        # Propogate the state covariance matrix.
         Q = Phi @ G @ self.state_server.continuous_noise_cov @ G.T @ Phi.T * dt
         self.state_server.state_cov[:21, :21] = (
             Phi @ self.state_server.state_cov[:21, :21] @ Phi.T + Q)
@@ -362,18 +331,15 @@ class MSCKF(object):
             self.state_server.state_cov[21:, :21] = (
                 self.state_server.state_cov[21:, :21] @ Phi.T)
 
-        # Fix the covariance to be symmetric
         self.state_server.state_cov = (
             self.state_server.state_cov + self.state_server.state_cov.T) / 2.
 
-        # Update the state correspondes to null space.
         self.state_server.imu_state.orientation_null = imu_state.orientation
         self.state_server.imu_state.position_null = imu_state.position
         self.state_server.imu_state.velocity_null = imu_state.velocity
 
     def predict_new_state(self, dt, gyro, acc):
-        # TODO: Will performing the forward integration using
-        # the inverse of the quaternion give better accuracy?
+        # TODO: Улучшит ли точность прямое интегрирование с использованием обратного кватерниона?
         gyro_norm = np.linalg.norm(gyro)
         Omega = np.zeros((4, 4))
         Omega[:3, :3] = -skew(gyro)
@@ -398,26 +364,21 @@ class MSCKF(object):
         dR_dt_transpose = to_rotation(dq_dt).T
         dR_dt2_transpose = to_rotation(dq_dt2).T
 
-        # k1 = f(tn, yn)
         k1_p_dot = v
         k1_v_dot = to_rotation(q).T @ acc + IMUState.gravity
 
-        # k2 = f(tn+dt/2, yn+k1*dt/2)
         k1_v = v + k1_v_dot*dt/2.
         k2_p_dot = k1_v
         k2_v_dot = dR_dt2_transpose @ acc + IMUState.gravity
-        
-        # k3 = f(tn+dt/2, yn+k2*dt/2)
+
         k2_v = v + k2_v_dot*dt/2
         k3_p_dot = k2_v
         k3_v_dot = dR_dt2_transpose @ acc + IMUState.gravity
-        
-        # k4 = f(tn+dt, yn+k3*dt)
+
         k3_v = v + k3_v_dot*dt
         k4_p_dot = k3_v
         k4_v_dot = dR_dt_transpose @ acc + IMUState.gravity
 
-        # yn+1 = yn + dt/6*(k1+2*k2+2*k3+k4)
         q = dq_dt / np.linalg.norm(dq_dt)
         v = v + (k1_v_dot + 2*k2_v_dot + 2*k3_v_dot + k4_v_dot)*dt/6.
         p = p + (k1_p_dot + 2*k2_p_dot + 2*k3_p_dot + k4_p_dot)*dt/6.
@@ -426,14 +387,11 @@ class MSCKF(object):
         self.state_server.imu_state.velocity = v
         self.state_server.imu_state.position = p
 
-    # Measurement update
-    # (state_augmentation, add_feature_observations)
     def state_augmentation(self, time):
         imu_state = self.state_server.imu_state
         R_i_c = imu_state.R_imu_cam0
         t_c_i = imu_state.t_cam0_imu
 
-        # Add a new camera state to the state server.
         R_w_i = to_rotation(imu_state.orientation)
         R_w_c = R_i_c @ R_w_i
         t_c_w = imu_state.position + R_w_i.T @ t_c_i
@@ -446,9 +404,6 @@ class MSCKF(object):
         cam_state.position_null = cam_state.position
         self.state_server.cam_states[imu_state.id] = cam_state
 
-        # Update the covariance matrix of the state.
-        # To simplify computation, the matrix J below is the nontrivial block
-        # in Equation (16) of "MSCKF" paper.
         J = np.zeros((6, 21))
         J[:3, :3] = R_i_c
         J[:3, 15:18] = np.identity(3)
@@ -456,18 +411,15 @@ class MSCKF(object):
         J[3:6, 12:15] = np.identity(3)
         J[3:6, 18:21] = np.identity(3)
 
-        # Resize the state covariance matrix.
         # old_rows, old_cols = self.state_server.state_cov.shape
         old_size = self.state_server.state_cov.shape[0]   # symmetric
         state_cov = np.zeros((old_size+6, old_size+6))
         state_cov[:old_size, :old_size] = self.state_server.state_cov
 
-        # Fill in the augmented state covariance.
         state_cov[old_size:, :old_size] = J @ state_cov[:21, :old_size]
         state_cov[:old_size, old_size:] = state_cov[old_size:, :old_size].T
         state_cov[old_size:, old_size:] = J @ state_cov[:21, :21] @ J.T
 
-        # Fix the covariance to be symmetric
         self.state_server.state_cov = (state_cov + state_cov.T) / 2.
 
     def add_feature_observations(self, feature_msg):
@@ -477,13 +429,11 @@ class MSCKF(object):
 
         for feature in feature_msg.features:
             if feature.id not in self.map_server:
-                # This is a new feature.
                 map_feature = Feature(feature.id, self.optimization_config)
                 map_feature.observations[state_id] = np.array([
                     feature.u0, feature.v0, feature.u1, feature.v1])
                 self.map_server[feature.id] = map_feature
             else:
-                # This is an old feature.
                 self.map_server[feature.id].observations[state_id] = np.array([
                     feature.u0, feature.v0, feature.u1, feature.v1])
                 tracked_feature_num += 1
@@ -492,32 +442,29 @@ class MSCKF(object):
 
     def measurement_jacobian(self, cam_state_id, feature_id):
         """
-        This function is used to compute the measurement Jacobian
-        for a single feature observed at a single camera frame.
+
+        Вычисляет якобиан измерения для одного признака, наблюдаемого в одном кадре.
+
         """
-        # Prepare all the required data.
+
         cam_state = self.state_server.cam_states[cam_state_id]
         feature = self.map_server[feature_id]
 
-        # Cam0 pose.
         R_w_c0 = to_rotation(cam_state.orientation)
         t_c0_w = cam_state.position
 
-        # Cam1 pose.
         R_w_c1 = CAMState.R_cam0_cam1 @ R_w_c0
         t_c1_w = t_c0_w - R_w_c1.T @ CAMState.t_cam0_cam1
 
-        # 3d feature position in the world frame.
-        # And its observation with the stereo cameras.
+        # Положение 3D-признака в мировой системе координат
+        # и его наблюдение стереокамерами.
         p_w = feature.position
         z = feature.observations[cam_state_id]
 
-        # Convert the feature position from the world frame to
-        # the cam0 and cam1 frame.
+        # Преобразует положение признака из мировой системы в системы cam0 и cam1.
         p_c0 = R_w_c0 @ (p_w - t_c0_w)
         p_c1 = R_w_c1 @ (p_w - t_c1_w)
 
-        # Compute the Jacobians.
         dz_dpc0 = np.zeros((4, 3))
         dz_dpc0[0, 0] = 1 / p_c0[2]
         dz_dpc0[1, 1] = 1 / p_c0[2]
@@ -544,7 +491,6 @@ class MSCKF(object):
         H_x = dz_dpc0 @ dpc0_dxc + dz_dpc1 @ dpc1_dxc   # shape: (4, 6)
         H_f = dz_dpc0 @ dpc0_dpg + dz_dpc1 @ dpc1_dpg   # shape: (4, 3)
 
-        # Modifty the measurement Jacobian to ensure observability constrain.
         A = H_x   # shape: (4, 6)
         u = np.zeros(6)
         u[:3] = to_rotation(cam_state.orientation_null) @ IMUState.gravity
@@ -553,7 +499,6 @@ class MSCKF(object):
         H_x = A - (A @ u)[:, None] * u / (u @ u)
         H_f = -H_x[:4, 3:6]
 
-        # Compute the residual.
         r = z - np.array([*p_c0[:2]/p_c0[2], *p_c1[:2]/p_c1[2]])
 
         # H_x: shape (4, 6)
@@ -563,13 +508,12 @@ class MSCKF(object):
 
     def feature_jacobian(self, feature_id, cam_state_ids):
         """
-        This function computes the Jacobian of all measurements viewed 
-        in the given camera states of this feature.
+        Вычисляет якобиан всех наблюдений данного признака по всем заданным состояниям камеры.
         """
         feature = self.map_server[feature_id]
 
-        # Check how many camera states in the provided camera id 
-        # camera has actually seen this feature.
+        # Проверяет, в скольких состояниях камеры (по заданным id) этот признак действительно наблюдался.
+
         valid_cam_state_ids = []
         for cam_id in cam_state_ids:
             if cam_id in feature.observations:
@@ -587,15 +531,12 @@ class MSCKF(object):
         for cam_id in valid_cam_state_ids:
             H_xi, H_fi, r_i = self.measurement_jacobian(cam_id, feature.id)
 
-            # Stack the Jacobians.
             idx = list(self.state_server.cam_states.keys()).index(cam_id)
             H_xj[stack_count:stack_count+4, 21+6*idx:21+6*(idx+1)] = H_xi
             H_fj[stack_count:stack_count+4, :3] = H_fi
             r_j[stack_count:stack_count+4] = r_i
             stack_count += 4
 
-        # Project the residual and Jacobians onto the nullspace of H_fj.
-        # svd of H_fj
         U, _, _ = np.linalg.svd(H_fj)
         A = U[:, 3:]
 
@@ -608,10 +549,9 @@ class MSCKF(object):
         if len(H) == 0 or len(r) == 0:
             return
 
-        # Decompose the final Jacobian matrix to reduce computational
-        # complexity as in Equation (28), (29).
+        # Декомпозирует итоговую матрицу якобиана для снижения вычислительной сложности
+
         if H.shape[0] > H.shape[1]:
-            # QR decomposition
             Q, R = np.linalg.qr(H, mode='reduced')  # if M > N, return (M, N), (N, N)
             H_thin = R         # shape (N, N)
             r_thin = Q.T @ r   # shape (N,)
@@ -619,17 +559,14 @@ class MSCKF(object):
             H_thin = H   # shape (M, N)
             r_thin = r   # shape (M)
 
-        # Compute the Kalman gain.
         P = self.state_server.state_cov
         S = H_thin @ P @ H_thin.T + (self.config.observation_noise * 
             np.identity(len(H_thin)))
         K_transpose = np.linalg.solve(S, H_thin @ P)
         K = K_transpose.T   # shape (N, K)
 
-        # Compute the error of the state.
         delta_x = K @ r_thin
 
-        # Update the IMU state.
         delta_x_imu = delta_x[:21]
 
         if (np.linalg.norm(delta_x_imu[6:9]) > 0.5 or 
@@ -649,7 +586,6 @@ class MSCKF(object):
         imu_state.R_imu_cam0 = to_rotation(dq_extrinsic) @ imu_state.R_imu_cam0
         imu_state.t_cam0_imu += delta_x_imu[18:21]
 
-        # Update the camera states.
         for i, (cam_id, cam_state) in enumerate(
                 self.state_server.cam_states.items()):
             delta_x_cam = delta_x[21+i*6:27+i*6]
@@ -658,13 +594,11 @@ class MSCKF(object):
                 dq_cam, cam_state.orientation)
             cam_state.position += delta_x_cam[3:]
 
-        # Update state covariance.
         I_KH = np.identity(len(K)) - K @ H_thin
         # state_cov = I_KH @ self.state_server.state_cov @ I_KH.T + (
         #     K @ K.T * self.config.observation_noise)
         state_cov = I_KH @ self.state_server.state_cov   # ?
 
-        # Fix the covariance to be symmetric
         self.state_server.state_cov = (state_cov + state_cov.T) / 2.
 
     def gating_test(self, H, r, dof):
@@ -678,29 +612,25 @@ class MSCKF(object):
             return False
 
     def remove_lost_features(self):
-        # Remove the features that lost track.
-        # BTW, find the size the final Jacobian matrix and residual vector.
+        # Удаляет признаки, потерявшие трекинг.
+        # Определяет размер итоговой матрицы якобиана и вектора невязок.
         jacobian_row_size = 0
         invalid_feature_ids = []
         processed_feature_ids = []
 
         for feature in self.map_server.values():
-            # Pass the features that are still being tracked.
+            # Пропускает признаки, которые ещё отслеживаются.
             if self.state_server.imu_state.id in feature.observations:
                 continue
             if len(feature.observations) < 3:
                 invalid_feature_ids.append(feature.id)
                 continue
 
-            # Check if the feature can be initialized if it has not been.
             if not feature.is_initialized:
-                # Ensure there is enough translation to triangulate the feature
                 if not feature.check_motion(self.state_server.cam_states):
                     invalid_feature_ids.append(feature.id)
                     continue
 
-                # Intialize the feature position based on all current available 
-                # measurements.
                 ret = feature.initialize_position(self.state_server.cam_states)
                 if ret is False:
                     invalid_feature_ids.append(feature.id)
@@ -709,11 +639,9 @@ class MSCKF(object):
             jacobian_row_size += (4 * len(feature.observations) - 3)
             processed_feature_ids.append(feature.id)
 
-        # Remove the features that do not have enough measurements.
         for feature_id in invalid_feature_ids:
             del self.map_server[feature_id]
 
-        # Return if there is no lost feature to be processed.
         if len(processed_feature_ids) == 0:
             return
 
@@ -722,7 +650,6 @@ class MSCKF(object):
         r = np.zeros(jacobian_row_size)
         stack_count = 0
 
-        # Process the features which lose track.
         for feature_id in processed_feature_ids:
             feature = self.map_server[feature_id]
 
@@ -737,38 +664,30 @@ class MSCKF(object):
                 r[stack_count:stack_count+len(r_j)] = r_j
                 stack_count += H_xj.shape[0]
 
-            # Put an upper bound on the row size of measurement Jacobian,
-            # which helps guarantee the executation time.
             if stack_count > 1500:
                 break
 
         H_x = H_x[:stack_count]
         r = r[:stack_count]
 
-        # Perform the measurement update step.
         self.measurement_update(H_x, r)
 
-        # Remove all processed features from the map.
         for feature_id in processed_feature_ids:
             del self.map_server[feature_id]
 
     def find_redundant_cam_states(self):
-        # Move the iterator to the key position.
         cam_state_pairs = list(self.state_server.cam_states.items())
 
         key_cam_state_idx = len(cam_state_pairs) - 4
         cam_state_idx = key_cam_state_idx + 1
         first_cam_state_idx = 0
 
-        # Pose of the key camera state.
         key_position = cam_state_pairs[key_cam_state_idx][1].position
         key_rotation = to_rotation(
             cam_state_pairs[key_cam_state_idx][1].orientation)
 
         rm_cam_state_ids = []
 
-        # Mark the camera states to be removed based on the
-        # motion between states.
         for i in range(2):
             position = cam_state_pairs[cam_state_idx][1].position
             rotation = to_rotation(
@@ -786,7 +705,6 @@ class MSCKF(object):
                 first_cam_state_idx += 1
                 cam_state_idx += 1
 
-        # Sort the elements in the output list.
         rm_cam_state_ids = sorted(rm_cam_state_ids)
         return rm_cam_state_ids
 
@@ -795,14 +713,11 @@ class MSCKF(object):
         if len(self.state_server.cam_states) < self.config.max_cam_state_size:
             return
 
-        # Find two camera states to be removed.
         rm_cam_state_ids = self.find_redundant_cam_states()
 
-        # Find the size of the Jacobian matrix.
         jacobian_row_size = 0
         for feature in self.map_server.values():
-            # Check how many camera states to be removed are associated
-            # with this feature.
+
             involved_cam_state_ids = []
             for cam_id in rm_cam_state_ids:
                 if cam_id in feature.observations:
@@ -815,11 +730,7 @@ class MSCKF(object):
                 continue
 
             if not feature.is_initialized:
-                # Check if the feature can be initialize.
                 if not feature.check_motion(self.state_server.cam_states):
-                    # If the feature cannot be initialized, just remove
-                    # the observations associated with the camera states
-                    # to be removed.
                     for cam_id in involved_cam_state_ids:
                         del feature.observations[cam_id]
                     continue
@@ -832,14 +743,11 @@ class MSCKF(object):
 
             jacobian_row_size += 4*len(involved_cam_state_ids) - 3
 
-        # Compute the Jacobian and residual.
         H_x = np.zeros((jacobian_row_size, 21+6*len(self.state_server.cam_states)))
         r = np.zeros(jacobian_row_size)
 
         stack_count = 0
         for feature in self.map_server.values():
-            # Check how many camera states to be removed are associated
-            # with this feature.
             involved_cam_state_ids = []
             for cam_id in rm_cam_state_ids:
                 if cam_id in feature.observations:
@@ -861,7 +769,6 @@ class MSCKF(object):
         H_x = H_x[:stack_count]
         r = r[:stack_count]
 
-        # Perform measurement update.
         self.measurement_update(H_x, r)
 
         for cam_id in rm_cam_state_ids:
@@ -869,8 +776,6 @@ class MSCKF(object):
             cam_state_start = 21 + 6*idx
             cam_state_end = cam_state_start + 6
 
-            # Remove the corresponding rows and columns in the state
-            # covariance matrix.
             state_cov = self.state_server.state_cov.copy()
             if cam_state_end < state_cov.shape[0]:
                 size = state_cov.shape[0]
@@ -878,12 +783,11 @@ class MSCKF(object):
                 state_cov[:, cam_state_start:-6] = state_cov[:, cam_state_end:]
             self.state_server.state_cov = state_cov[:-6, :-6]
 
-            # Remove this camera state in the state vector.
             del self.state_server.cam_states[cam_id]
 
     def reset_state_cov(self):
         """
-        Reset the state covariance.
+        Сбрасывает ковариацию состояния.
         """
         state_cov = np.zeros((21, 21))
         state_cov[ 3: 6,  3: 6] = self.config.gyro_bias_cov * np.identity(3)
@@ -895,41 +799,33 @@ class MSCKF(object):
 
     def reset(self):
         """
-        Reset the VIO to initial status.
+        Сбрасывает VIO в начальное состояние.
         """
-        # Reset the IMU state.
         imu_state = IMUState()
         imu_state.id = self.state_server.imu_state.id
         imu_state.R_imu_cam0 = self.state_server.imu_state.R_imu_cam0
         imu_state.t_cam0_imu = self.state_server.imu_state.t_cam0_imu
         self.state_server.imu_state = imu_state
 
-        # Remove all existing camera states.
         self.state_server.cam_states.clear()
 
-        # Reset the state covariance.
         self.reset_state_cov()
 
-        # Clear all exsiting features in the map.
         self.map_server.clear()
 
-        # Clear the IMU msg buffer.
         self.imu_msg_buffer.clear()
 
-        # Reset the starting flags.
         self.is_gravity_set = False
         self.is_first_img = True
 
     def online_reset(self):
         """
-        Reset the system online if the uncertainty is too large.
+        Онлайн-сброс системы при слишком большой неопределённости.
         """
-        # Never perform online reset if position std threshold is non-positive.
+
         if self.config.position_std_threshold <= 0:
             return
 
-        # Check the uncertainty of positions to determine if 
-        # the system can be reset.
         position_x_std = np.sqrt(self.state_server.state_cov[12, 12])
         position_y_std = np.sqrt(self.state_server.state_cov[13, 13])
         position_z_std = np.sqrt(self.state_server.state_cov[14, 14])
@@ -940,13 +836,10 @@ class MSCKF(object):
 
         print('Start online reset...')
 
-        # Remove all existing camera states.
         self.state_server.cam_states.clear()
 
-        # Clear all exsiting features in the map.
         self.map_server.clear()
 
-        # Reset the state covariance.
         self.reset_state_cov()
 
     def publish(self, time):

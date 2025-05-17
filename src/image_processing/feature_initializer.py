@@ -35,7 +35,7 @@ class FeatureInitializer:
 
     def get_grid_size(self, img):
         """
-        Size of each grid cell in pixels.
+        Размер ячейки сетки в пикселях.
         """
         h, w = img.shape[:2]
         grid_h = int(np.ceil(h / self.grid_row))
@@ -44,19 +44,16 @@ class FeatureInitializer:
 
     def initialize_first_frame(self):
         """
-        Detect and initialize features on the first stereo frame.
+        Детектирует и инициализирует признаки на первом стереокадре.
         """
         img = self.cam0_curr_img_msg.image
         grid_height, grid_width = self.get_grid_size(img)
 
-        # 1) Detect keypoints in left image
         kps = self.detector.detect(img)
         cam0_points = [kp.pt for kp in kps]
 
-        # 2) Stereo match to right image
         cam1_points, inlier_mask = self.stereo_match(cam0_points)
 
-        # 3) Collect inlier pairs
         cam0_inliers = []
         cam1_inliers = []
         responses    = []
@@ -67,7 +64,6 @@ class FeatureInitializer:
             cam1_inliers.append(cam1_points[i])
             responses.append(kps[i].response)
 
-        # 4) Group into grid cells
         grid_feats = [[] for _ in range(self.config.grid_num)]
         for pt0, pt1, resp in zip(cam0_inliers, cam1_inliers, responses):
             row = int(pt0[1] / grid_height)
@@ -80,7 +76,6 @@ class FeatureInitializer:
             fm.cam1_point = pt1
             grid_feats[idx].append(fm)
 
-        # 5) Pick top-N per cell
         for idx, feats in enumerate(grid_feats):
             top_feats = sorted(feats, key=lambda f: f.response, reverse=True)[:self.grid_min_feature_num]
             for f in top_feats:

@@ -1,6 +1,6 @@
 class FeatureMetaData(object):
     """
-    Contain necessary information of a feature for easy access.
+    Содержит необходимую информацию о признаке для удобного доступа.
     """
     def __init__(self):
         self.id = None           # int

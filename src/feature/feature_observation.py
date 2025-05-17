@@ -3,7 +3,7 @@ import numpy as np
 class FeatureObservation:
     def cost(self, T_c0_ci, x, z):
         """
-        Compute the cost of the camera observations
+        Вычисляет стоимость (ошибку) наблюдений камеры
         """
         alpha, beta, rho = x
         h = T_c0_ci.R @ np.array([alpha, beta, 1.0]) + rho * T_c0_ci.t
@@ -13,7 +13,7 @@ class FeatureObservation:
 
     def jacobian(self, T_c0_ci, x, z):
         """
-        Compute the Jacobian of the camera observation
+        Вычисляет якобиан наблюдения камеры
         """
         alpha, beta, rho = x
         h = T_c0_ci.R @ np.array([alpha, beta, 1.0]) + rho * T_c0_ci.t
