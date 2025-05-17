@@ -2,6 +2,8 @@
 
 [![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/BUBLET/uav-airvision/blob/master/README.md)
 [![ru](https://img.shields.io/badge/lang-ru-blue?style=flat&logoColor=blue)](https://github.com/BUBLET/uav-airvision/blob/master/README-ru.md)
+![Views](https://visitor-badge.laobi.icu/badge?page_id=https://github.com/BUBLET/uav-airvision/blob/master/README.md)
+
 
 ## About
 UAV AirVision is a high-precision visual-inertial odometry (VIO) module for unmanned aerial vehicles (UAVs).
