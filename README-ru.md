@@ -1,5 +1,8 @@
 # UAV-Airvision
 
+[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/BUBLET/uav-airvision/blob/master/README.md)
+[![ru](https://img.shields.io/badge/russian-blue?style=flat&logoColor=blue)](https://github.com/BUBLET/uav-airvision/blob/master/README-ru.md)
+
 ## О проекте
 UAV AirVision — это высокоточный модуль визуально-инерциальной одометрии (VIO) для беспилотных летательных аппаратов (БПЛА).
 Проект предназначен для оценки траектории движения с использованием стереокамер и IMU.
